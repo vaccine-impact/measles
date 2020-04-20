@@ -37,3 +37,9 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+*.csv
+run_local/gavi_log
+run_local/gavi_progress
+*.txt
+run_local/model/compiled/vaccine2019
+*.exe
