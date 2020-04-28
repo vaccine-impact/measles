@@ -8,9 +8,8 @@ library (doParallel)
 # clear workspace 
 rm (list = ls ())
 
-
 tic ()  # start timer
-
+print (Sys.time ())
 
 # Title:		Run mathematical model for measles to update estimates for Gavi
 # Author:		Ed Jones, London School of Hygiene & Tropical Medicine. Edited by Kevin van Zandvoort, London School of Hygiene & Tropical Medicine, Petra Klepac, LSHTM
@@ -66,7 +65,7 @@ if (run.local) {
 # scenario index to run
 index <- 2
 # for (index in 1:10) {  # debug #
-for (index in 2:2) {  # debug #
+for (index in 1:2) {  # debug #
   
   
   #  change these when new scenarios are released:
@@ -263,7 +262,7 @@ for (index in 2:2) {  # debug #
   countries	<- as.character(unique(coverage_routine[,country_code]))  
   # countries	<- as.character(unique(coverage_routine[,country_code]))[1]  # debug #
   # countries	<- c ("ETH", "BGD", "SSD", "NGA")
-  countries	<- c ("ETH")
+  # countries	<- c ("ETH")
   # countries	<- as.character(unique(coverage_routine[,country_code]))
   
   # change to run only for a set of specified missing countries
@@ -694,4 +693,6 @@ if (using_openmpi){
   mpi.quit()
 }
 
+print (Sys.time ())
 toc ()  # stop timer 
+
