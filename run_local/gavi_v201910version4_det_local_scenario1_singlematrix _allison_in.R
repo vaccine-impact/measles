@@ -65,7 +65,7 @@ if (run.local) {
 # scenario index to run
 index <- 2
 # for (index in 1:10) {  # debug #
-for (index in 1:2) {  # debug #
+for (index in 8:8) {  # debug #
   
   
   #  change these when new scenarios are released:
