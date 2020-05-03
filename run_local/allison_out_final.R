@@ -4,19 +4,7 @@
 # to vimc format
 # Deaths and dalys will need to be computed using cases, cfrs and remaining life expectancy
 
-# load libraries
-library (tictoc)
-library (data.table)
-library (doParallel)
-
-# clear workspace 
-rm (list = ls ())
-
-tic ()  # start timer
-print (Sys.time ())
-
-
-# Convert output files (burden estimates) provided by Allison with age-varying cfrs to vimc format
+# Convert output files (burden estimates) provided by Allison with time-varying cfrs to vimc format
 create_central_burden_estimates <- function () {
   
   # scenario index to run
@@ -127,9 +115,7 @@ create_central_burden_estimates <- function () {
 } # end of function -- create_central_burden_estimates 
 
 
-# Convert output files (burden estimates) provided by Allison with age-varying cfrs to vimc format
+# Convert output files (burden estimates) provided by Allison with time-varying cfrs to vimc format
 create_central_burden_estimates ()
 
-print (Sys.time ())
-toc ()  # stop timer 
 

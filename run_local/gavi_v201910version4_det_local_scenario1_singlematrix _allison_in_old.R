@@ -1,5 +1,16 @@
 # gavi_v201910version4_det_local_scenario1_singlematrix _allison_in.R
 
+# load libraries
+library (tictoc)
+library (data.table)
+library (doParallel)
+
+# clear workspace 
+rm (list = ls ())
+
+tic ()  # start timer
+print (Sys.time ())
+
 # Title:		Run mathematical model for measles to update estimates for Gavi
 # Author:		Ed Jones, London School of Hygiene & Tropical Medicine. Edited by Kevin van Zandvoort, London School of Hygiene & Tropical Medicine, Petra Klepac, LSHTM
 # Date:			20/11/2019
@@ -68,7 +79,7 @@ for (index in 8:8) {  # debug #
                      "mcv1-default",                     # 8  MCV1 only
                      "no-vaccination",                   # 9  no vaccination (set vaccination and using_sia to 0)
                      "stop"                              # 10 MCV1&2 and SIAs
-                     )
+  )
   
   scenario <- scenario.name [index]
   
@@ -682,4 +693,6 @@ if (using_openmpi){
   mpi.quit()
 }
 
+print (Sys.time ())
+toc ()  # stop timer 
 

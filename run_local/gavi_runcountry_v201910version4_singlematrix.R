@@ -10,7 +10,7 @@
 # the same as prior to expanding it to weekly ages)
 # 2) projects the contact matrix to represent country's demography
 
-runCountry <- function(
+runCountry <- function (
 	#variables specific for loop
 	ii,
 	countries,
@@ -60,7 +60,8 @@ runCountry <- function(
 	process_results,
 	run_model,
 	remove_files = TRUE
-){
+) {
+  
 	iso3 <- countries[ii]
 	#temporarily assign 3-letter-ISO code to Kosovo until Kosovo is assigned official ISO3-code
 	if(iso3 == "XK"){

@@ -1,10 +1,6 @@
-# create remaining life expectancy file
+# lexp.R
 
-library (data.table)
-
-rm (list = ls ())
-
-# create remaining life expectancy file
+# create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full <- function () {
   
   # read data file for remaining life expectancy
@@ -36,5 +32,3 @@ create_life_expectancy_remaining_full <- function () {
           file = "input/demographicdata2019/201910gavi-4_dds-201910_2_life_ex_both_full.csv")
   
 } # end of function -- create_life_expectancy_remaining_full
-
-create_life_expectancy_remaining_full ()
