@@ -102,9 +102,10 @@ for (index in 11:14) {  # debug #
   # ------------------------------------------------------------------------------
   if (index == 9) {
     
-    data_coverage_routine 	<- paste0("scenarios2019/coverage_routine_", scenario.name[index-1], ".csv")
+    data_coverage_routine 	<- paste0 ("scenarios2019/coverage_routine_", scenario.name[index-1], ".csv")
+    
     # file with SIA data (csv; in ./input/)
-    data_coverage_sia 		<- paste0("scenarios2019/coverage_sia_", scenario.name[index-1], ".csv") # "SIA_Gavi_1.csv" #"coverage_sia_imputed.csv"
+    data_coverage_sia 		<- paste0 ("scenarios2019/coverage_sia_", scenario.name[index-1], ".csv") # "SIA_Gavi_1.csv" #"coverage_sia_imputed.csv"
     
   } else {
     
@@ -341,9 +342,9 @@ for (index in 11:14) {  # debug #
   coverage_sia <- coverage_sia[, .SD[1], by = c("country_code", "year")]
   
   if (psa > 0) {
-    if (file.exists(paste0("input/",data_psa))){
+    if (file.exists(paste0("input/", data_psa))){
       # read csv if file already exists
-      psa_var <- fread(paste0("input/",data_psa))
+      psa_var <- fread(paste0("input/", data_psa))
       
       # check if psa_var corresponds with psa
       if(nrow(psa_var) != psa){
