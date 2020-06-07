@@ -8,7 +8,8 @@
 create_central_burden_estimates <- function () {
   
   # scenario index to run
-  for (index in 1:10) {  # debug #
+  # for (index in 1:10) {  # debug #
+  for (index in 11:14) {  # debug #
     
     #  change these when new scenarios are released:
     scenario.name <- c("campaign-only-bestcase",           # 1  SIAs only
@@ -20,7 +21,12 @@ create_central_burden_estimates <- function () {
                        "campaign-default",                 # 7  MCV1&2 and SIAs
                        "mcv1-default",                     # 8  MCV1 only
                        "no-vaccination",                   # 9  no vaccination (set vaccination and using_sia to 0)
-                       "stop"                              # 10 MCV1&2 and SIAs
+                       "stop",                            # 10 MCV1&2 and SIAs
+                       
+                       "campaign-default_ETH_s1",                 # ETH s1
+                       "campaign-default_ETH_s2",                 # ETH s2
+                       "campaign-default_ETH_s3",                 # ETH s3
+                       "campaign-default_ETH_s4"                  # ETH s4
     )
     scenario <- scenario.name [index]
     
@@ -116,6 +122,6 @@ create_central_burden_estimates <- function () {
 
 
 # Convert output files (burden estimates) provided by Allison with time-varying cfrs to vimc format
-create_central_burden_estimates ()
+# create_central_burden_estimates ()
 
 

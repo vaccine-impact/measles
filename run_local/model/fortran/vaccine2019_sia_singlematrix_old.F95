@@ -344,20 +344,9 @@ program measles
 	ve_a = real(0.64598,dp)
 	ve_b = real(0.00148,dp)
 
-  ! ----------------------------------------------------------------------------
 	! SIA reach regression parameters for function SIAcov
-	!   From:
-	! SIA_a = real(1.141, dp)
-	! SIA_b = real(-0.679, dp)
-	!
-	!  To:
-	!  I think this will make sure all the doses go to zero dose kids until there are none left.
-	!
-	! SIA reach regression parameters for function SIAcov (amended 2020/05/31 to best case scenario)
-  SIA_a = real(1, dp)
-  SIA_b = real(0, dp)
-	!
-	! ----------------------------------------------------------------------------
+	SIA_a = real(1.141, dp)
+	SIA_b = real(-0.679, dp)
 
 	!initialize compartments
 	M	= real(0, dp)

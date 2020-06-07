@@ -20,6 +20,7 @@ generate_vaccine_coverage_routine_sia <- function () {
   
   # total number of scenarios
   scenarios <- 10
+  scenarios <- 14
   
   # loop through different scenarios
   for (index in 1:scenarios) {
@@ -34,7 +35,14 @@ generate_vaccine_coverage_routine_sia <- function () {
                        "campaign-default",                 # 7  MCV1, MCV2, SIAs
                        "mcv1-default",                     # 8  MCV1 only
                        "no-vaccination",                   # 9  no vaccination (set vaccination and using_sia to 0)
-                       "stop" )                            # 10 MCV1, MCV2, SIAs 
+                       "stop",                             # 10 MCV1, MCV2, SIAs 
+    
+                       "campaign-default_ETH_s1",                 # ETH s1
+                       "campaign-default_ETH_s2",                 # ETH s2
+                       "campaign-default_ETH_s3",                 # ETH s3
+                       "campaign-default_ETH_s4"                  # ETH s4
+                       
+                       )
     
     # specific scenario
     scenario <- scenario.name [index]
