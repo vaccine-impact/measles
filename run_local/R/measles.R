@@ -69,28 +69,30 @@ create_life_expectancy_remaining_full <- function () {
 create_vaccine_coverage_routine_sia <- function (vaccine_coverage_folder    = "", 
                                                  coverage_prefix            = "",
                                                  touchstone                 = "",
-                                                 scenario,
+                                                 antigen                    = "",
+                                                 scenario_name,
                                                  vaccine_coverage_subfolder = "") {
   
   # vaccine coverage file
   vaccine_coverage_file <- paste0 (vaccine_coverage_folder, 
                                    coverage_prefix, 
                                    touchstone, 
-                                   scenario, 
+                                   antigen,
+                                   scenario_name, 
                                    ".csv")
   
   # separate vaccine coverage file for routine immunisation
   routine_coverage_file <- paste0 (vaccine_coverage_folder, 
                                    vaccine_coverage_subfolder,
                                    "routine_",
-                                   scenario, 
+                                   scenario_name, 
                                    ".csv")
   
   # separate vaccine coverage file for SIA (supplementary immunisation activities)
   sia_coverage_file <- paste0 (vaccine_coverage_folder, 
                                vaccine_coverage_subfolder,
                                "sia_",
-                               scenario, 
+                               scenario_name, 
                                ".csv")
   
   # read vaccine coverage data file
@@ -180,8 +182,8 @@ create_vaccine_coverage_routine_sia <- function (vaccine_coverage_folder    = ""
   
 } # end of function -- create_vaccine_coverage_routine_sia
 # ------------------------------------------------------------------------------
-  
- 
+
+
 # ------------------------------------------------------------------------------
 # writelog
 #
@@ -370,7 +372,7 @@ runCountry <- function (
   amplitude,
   take,
   degree,
-  sia_method,
+  sia.method,
   
   #input data
   coverage_routine,
@@ -390,7 +392,7 @@ runCountry <- function (
   debug_model,
   debug_spinup,
   debug_age,
-  debug_compartment,
+  debug_compartments,
   debug_country,
   debug_relative,
   debug_timepoints,
@@ -399,7 +401,7 @@ runCountry <- function (
   r,
   runs,
   psa,
-  psa_var,
+  psa_var,  # used only when psa > 0
   
   #additional options
   process_results,
@@ -625,15 +627,20 @@ runCountry <- function (
         country_year_timeliness_mcv1_allages <- rep(0, 254)
       }
       
-      if(vaccination==2){
-        country_year_mcv2 <- coverage_routine[country_code == iso3 & year == y & vaccine == "MCV2", coverage]
+      if(vaccination == 2){
+        country_year_mcv2 <- coverage_routine [country_code == iso3 & year == y & vaccine == "MCV2", coverage]
       } else {
         country_year_mcv2 <- 0
       }
       
-      if(is.na(country_year_mcv2)){
+      if ( length (country_year_mcv2) == 0 ) {
         country_year_mcv2 <- 0
       }
+      
+      # if ( is.na(country_year_mcv2) ){
+      #   country_year_mcv2 <- 0
+      # }
+      
       
       # First three ages are modelled in weekly strata
       pop_year <- c(
@@ -760,20 +767,21 @@ runCountry <- function (
     
     # process debugging options
     if (debug_country != "*" & !(iso3 %in% debug_country)){
-      debug_debug			<- 0
+      debug_debug			    <- 0
       debug_compartments	<- 0
-      debug_age			<- 0
-      debug_timepoints	<- 0
-      debug_relative		<- 0
+      debug_age		       	<- 0
+      debug_timepoints  	<- 0
+      debug_relative	  	<- 0
     } else {
-      debug_debug 		<- as.integer(debug_spinup) + 2*as.integer(debug_model)
-      debug_compartments	<- as.integer(debug_compartments)
-      debug_relative		<- as.integer(debug_relative)
+      debug_debug 	     	<- as.integer (debug_spinup) + 2 * as.integer(debug_model)
+      debug_compartments	<- as.integer (debug_compartments)
+      debug_relative		  <- as.integer (debug_relative)
     }
     
     # run the model
     writelog ("gavi_log",paste0(iso3, "; Run ",r,"/",runs,"; Start model"))
     updateProgress (iso3, ii, runs, r, 2)
+    
     if(Sys.info()[["sysname"]] == "Windows"){
       model <- paste0(
         'cd "',
@@ -792,8 +800,10 @@ runCountry <- function (
         debug_timepoints, " ",
         debug_relative
       )
-      model <- gsub("/","\\\\",model)
-      shell(model, intern=TRUE)
+      
+      model <- gsub ("/", "\\\\", model)
+      shell (model, intern = TRUE)
+      
     } else {
       model <- paste0 (
         'cd "', 
@@ -819,7 +829,7 @@ runCountry <- function (
   writelog ("gavi_log", paste0(iso3, "; Run ",r,"/",runs,"; Finished model"))
   updateProgress (iso3, ii, runs, r, 3)
   
-  # remove inputdata for this country
+  # remove input data for this country
   # if files are removed around the same time by different workers, position may change
   if(remove_files){
     files <- list.files(
@@ -917,10 +927,14 @@ runCountry <- function (
 runScenario <- function (vaccine_coverage_folder    = "", 
                          coverage_prefix            = "",
                          touchstone                 = "",
-                         scenario,
+                         antigen                    = "",
+                         scenario_name,
+                         scenario_number,
                          vaccine_coverage_subfolder = "",
                          
-                         burden_template,  # burden template file
+                         burden_template,         # burden template file
+                         burden_estimate_folder,  # burden estimate folder  
+                         group_name,              # modelling group name
                          
                          # Whether children are vaccinated. 0: No vaccination; 1: Only MCV1; 2: MCV1 and MCV2
                          vaccination, 
@@ -928,13 +942,13 @@ runScenario <- function (vaccine_coverage_folder    = "",
                          # Whether supplementary immunization campaigns are used. 0: no SIA; 1: with SIA
                          using_sia,
                          
-                         countries                  = "", 
+                         countries                  = "all", 
                          cluster_cores              = 1,
                          
                          psa  # runs for probabilistic sensitivity analysis
-                              # 0 for single run
-                        
-                         ) {
+                         # 0 for single run
+                         
+) {
   
   # Changelog:	This file has been heavily changed compared to old file by Ed Jones:
   # 				1.	There is only one file in which different settings can be changed to run different scenario's, rather than 8 different folders for different scenarios;
@@ -951,7 +965,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
   #       d) MCV1 and MCV2 dependency - give MCV2 to those who received MCV1 for MCV2 coverage <= MCV1, if MCV2 coverage > MCV1 distribute the remainder randomly
   #       e) MCV1 and SIA dependency - use linear regression of data from Portnoy et al 2018 to inform the proportion of zero-dose children reached by SIA campaign
   #       f) due to issues with age_range_verbatim field in the scenario (coverage) input files, these runs use age_first and age_last
-
+  
   
   
   
@@ -987,565 +1001,595 @@ runScenario <- function (vaccine_coverage_folder    = "",
   
   # scenario index to run
   # index <- 2
-
+  
   # for (index in 1:10) {  # debug #
   # for (index in 11:14) {  # debug #
-    
-    
-    #  change these when new scenarios are released:
-    # scenario.name <- c("campaign-only-bestcase",           # 1  SIAs only
-    #                    "mcv12-bestcase",                   # 2  MCV1&2
-    #                    "campaign-bestcase",                # 3  MCV1&2 and SIAs
-    #                    "mcv1-bestcase",                    # 4  MCV1 only
-    #                    "campaign-only-default",            # 5  SIAs only
-    #                    "mcv12-default",                    # 6  MCV1&2
-    #                    "campaign-default",                 # 7  MCV1&2 and SIAs
-    #                    "mcv1-default",                     # 8  MCV1 only
-    #                    "no-vaccination",                   # 9  no vaccination (set vaccination and using_sia to 0)
-    #                    "stop",                              # 10 MCV1&2 and SIAs
-    #                    
-    #                    "campaign-default_ETH_s1",                 # ETH s1
-    #                    "campaign-default_ETH_s2",                 # ETH s2
-    #                    "campaign-default_ETH_s3",                 # ETH s3
-    #                    "campaign-default_ETH_s4"                  # ETH s4
-    #                    
-    # )
-    # 
-    # scenario <- scenario.name [index]
-    
-    # index variable for scenario to save it to a correct folder (scenarioXX, XX = 01,02,..... ,10)
   
-    # counter       <- c(paste0 ("0", c(1:9)), "10", "11", "12", "13", "14")
-    # save.scenario <- paste0 ("scenario", counter[index ])  # debug #
+  
+  #  change these when new scenarios are released:
+  # scenario.name <- c("campaign-only-bestcase",           # 1  SIAs only
+  #                    "mcv12-bestcase",                   # 2  MCV1&2
+  #                    "campaign-bestcase",                # 3  MCV1&2 and SIAs
+  #                    "mcv1-bestcase",                    # 4  MCV1 only
+  #                    "campaign-only-default",            # 5  SIAs only
+  #                    "mcv12-default",                    # 6  MCV1&2
+  #                    "campaign-default",                 # 7  MCV1&2 and SIAs
+  #                    "mcv1-default",                     # 8  MCV1 only
+  #                    "no-vaccination",                   # 9  no vaccination (set vaccination and using_sia to 0)
+  #                    "stop",                              # 10 MCV1&2 and SIAs
+  #                    
+  #                    "campaign-default_ETH_s1",                 # ETH s1
+  #                    "campaign-default_ETH_s2",                 # ETH s2
+  #                    "campaign-default_ETH_s3",                 # ETH s3
+  #                    "campaign-default_ETH_s4"                  # ETH s4
+  #                    
+  # )
+  # 
+  # scenario <- scenario.name [index]
+  
+  # index variable for scenario to save it to a correct folder (scenarioXX, XX = 01,02,..... ,10)
+  
+  # counter       <- c(paste0 ("0", c(1:9)), "10", "11", "12", "13", "14")
+  # save.scenario <- paste0 ("scenario", counter[index ])  # debug #
   
   # save to the scenario folder   
-  save.scenario <- scenario
+  save.scenario <- scenario_number
+  
+  # save.scenario <- paste0 ("scenario", as.character(index))
+  
+  # set SIAs and vaccination parameters for each scenario to minimize errors for running
+  # set.sia         <-   c(1, 0, 1, 0, 1, 0, 1, 0, 0, 1,    1, 1, 1, 1)
+  # set.vaccination <-   c(0, 2, 2, 1, 0, 2, 2, 1, 0, 2,    2, 2, 2, 2)
+  # set.vaccination <- c(0, 2, 2, 1, 0, 2, 2, 1, 0, 2)
+  
+  # ------------------------------------------------------------------------------
+  # II		Options
+  # ------------------------------------------------------------------------------
+  # vaccination	<- set.vaccination [index]  # Whether children are vaccinated. 0: No vaccination; 1: Only MCV1; 2: MCV1 and MCV2
+  # using_sia	  <- set.sia [index]     	    # Whether supplementary immunization campaigns are used. 0: no SIA; 1: with SIA
+  
+  ages 		    <- c (0:100)	              # Numeric vector with age-strata that are reported (Model ALWAYS models 101 age-groups; 0-2yo in weekly age-strata, and 3-100yo in annual age-strata)
+  psa 		    <- psa		                  # Number of PSAs to run (0 to use deterministic).
+  
+  
+  # ------------------------------------------------------------------------------
+  # III	 Input-data
+  # ------------------------------------------------------------------------------
+  # if (index == 9) {
+  #   
+  #   data_coverage_routine 	<- paste0 ("scenarios2019/coverage_routine_", scenario.name[index-1], ".csv")
+  #   
+  #   # file with SIA data (csv; in ./input/)
+  #   data_coverage_sia 		<- paste0 ("scenarios2019/coverage_sia_", scenario.name[index-1], ".csv") # "SIA_Gavi_1.csv" #"coverage_sia_imputed.csv"
+  #   
+  # } else {
+  #   
+  #   data_coverage_routine 	<- paste0("scenarios2019/coverage_routine_", scenario, ".csv")
+  #   # file with SIA data (csv; in ./input/)
+  #   data_coverage_sia 		<- paste0("scenarios2019/coverage_sia_", scenario, ".csv")  
+  #   
+  # }
+  # 
+  # if (index %in% c(1,5)) {
+  #   data_coverage_routine 	<- paste0("scenarios2019/coverage_routine_", scenario.name[2], ".csv")
+  # }
+  
+  # --------------------------------------------------------------------------
+  # input data files
+  #
+  # vaccine coverage file for routine immunisation
+  data_coverage_routine <- paste0 (vaccine_coverage_folder, 
+                                   vaccine_coverage_subfolder,
+                                   "routine_",
+                                   scenario_name, 
+                                   ".csv")
+  
+  # separate vaccine coverage file for SIA (supplementary immunisation activities)
+  data_coverage_sia <- paste0 (vaccine_coverage_folder, 
+                               vaccine_coverage_subfolder,
+                               "sia_",
+                               scenario_name, 
+                               ".csv")
+  
+  # file with timeliness data (csv; in ./input/)
+  data_timeliness <- "timeliness_new.csv"
+  
+  # file with R0 (csv; in ./input/)
+  data_r0 		<- "r0.csv" #"r0est.csv"
+  
+  # file with life-expectancies (csv; in ./input/)
+  data_life_exp 	<- "demographicdata2019/201910gavi-4_dds-201910_lx0_both.csv"
+  # data_life_exp 	<- "new/lx_old.csv"
+  
+  # template Gavi (used to check if all data is present)
+  # data_gavi_template <- "central-burden-template_2019104.csv" 
+  data_gavi_template <- burden_template
+  
+  # file with CFRs (csv; in ./input/)
+  data_cfr 		<- "cfrs_new_noage.csv"
+  
+  # file with population sizes (csv; in ./input/)
+  data_pop 		<- "demographicdata2019/201910gavi-4_dds-201910_2_int_pop_both.csv"
+  #data_pop 		<- "new/pop_old.csv"
+  
+  # file with contact_data
+  data_contact	<- "contact/uk_polymod_physical_101.csv"  # use newly rescaled polymod to yearly age bands to 100
+  
+  # data with PSA variables
+  # should be the same for each scenario. Will be CREATED if does not exist
+  data_psa 		<- "psa_variables.csv"
+  
+  # expected remaining years of life
+  # data_life_exp_remain <- "demographicdata2019/201910gavi-4_dds-201910_2_life_ex_both.csv"
+  data_life_exp_remain <- "demographicdata2019/201910gavi-4_dds-201910_2_life_ex_both_full.csv"
+  # --------------------------------------------------------------------------
+  
+  
+  # --------------------------------------------------------------------------
+  # IV		Advanced options 
+  # --------------------------------------------------------------------------
+  
+  sia.method	<- 1				             # 1 = variable take; 2 = variable degree
+  dinf		    <- 14				             # duration of infection (days)
+  amplitude 	<- 0.05			             # amplitude for seasonality
+  take 		    <- c (0.85, 0.95, 0.98)  # vaccine efficacy for take1 (take dose 1, before age 1), take2 (dose 1, after age 1) & take3 (dose 2). Note that dose2 only has an effect if vaccine==2.
+  degree 		  <- c (0.85, 0.95, 0.98)  # vaccine efficacy for degree1 (degree dose 1, before age 1), degree2 (dose 1, after age 1) & degree3 (dose 2). Note that dose2 only has an effect if vaccine==2.			
+  tstep			  <- 1000				           # Number of time steps in a year
+  
+  
+  # ----------------------------------------------------------------------------
+  # Measles model
+  # filename of compiled fortran-model (in ./model/compiled/)
+  # ----------------------------------------------------------------------------
+  # measles_model <- "vaccine2019_sia_singlematrix" # change this to reflect the right version of the fortran code
+  measles_model <- "vaccine2019_sia_singlematrix.exe" # change this to reflect the right version of the fortran code
+  # ----------------------------------------------------------------------------
+  
+  # number of clusters to use
+  # if larger than 1, country-specific model runs are distributed over specified number of clusters
+  # note that model uses a lot of memory, so might not want to max out all clusters
+  use_cluster  <- cluster_cores   # debug #
+  remove_files <- T
+  
+  # may want to process results after generating all data. Note OUTPUT files are not removed if remove_files == TRUE and process_results == FALSE
+  process_results <- F
+  run_model       <- TRUE
+  # folder will be created if not given - should usually be commented out, except when run model is FALSE
+  
+  
+  # ------------------------------------------------------------------------------
+  # V		Debug
+  # ------------------------------------------------------------------------------
+  
+  debug_country		  <- "*"			#ISO3 codes of country to debug, * to debug all countries
+  debug_spinup		  <- FALSE		#TRUE/FALSE: If true, generate data for spin-up period of model
+  debug_model			  <- FALSE		#TRUE/FALSE: If true: generate data for period after spin-up
+  debug_compartments<- 0			  #TRUE/FALSE: If true: output size of each compartment. If false: output number of cases. If 2: debug vaccinated
+  debug_age         <- 0        #0-2. If 0: output all in annual age-strata. If 1: output age 0-2 in weekly age-strata, 3-100 in annual age-strata. If 2: sum all age-strata.
+  debug_timepoints	<- 0			  #0-2. If 0: output per year. If 1: output per timepoint and report first 25% of timepoints. If 2: output per timepoint and report all timepoints.
+  debug_relative		<- FALSE		#If true: output proportion of new cases. If false, output absolute number of new cases.
+  
+  # START OF MODEL  
+  
+  # ----------------------------------------------------------------------------
+  # ----------------------------------------------------------------------------
+  # SETUP
+  
+  # wd <- paste0(wd, project.name, "/")
+  # setwd (wd)			
+  # source (paste0("./gavi_setup_v", version, "_singlematrix.R"))
+  
+  # load correct libraries when on cluster (using open MPI)
+  if ("cluster_using_openmpi" %in% commandArgs()){
+    using_openmpi <- TRUE
+    require("doMPI")
+    require("parallel")
+    cl <- startMPIcluster()
+    registerDoMPI(cl)
+    print("using openMPI")
+  } else {
+    using_openmpi <- FALSE
+    print("no openMPI")
+  }
+  
+  
+  # load required libraries
+  # if (!using_openmpi) {
+  #   require("doParallel")
+  # }
+  
+  # function for each country
+  # source (paste0(wd,"gavi_runcountry_v", version, "_singlematrix.R"))
+  
+  # clean environment
+  if (file.exists ("gavi_progress")) {
+    file.remove ("gavi_progress")
+  }
+  
+  # are we running a PSA - a deterministic or "stochastic" model?		
+  if (psa == 0) {
+    det_stoch <- "deter" # deterministic
+    runs      <- 1
     
-    # save.scenario <- paste0 ("scenario", as.character(index))
+  } else {
+    det_stoch <- "stoch" # stochastic
+    runs      <- psa
+  }
+  
+  # create folder with correct name for in- and output data if not yet exists
+  # typically foldername should not exist - but may come in handy when only processing results
+  if ( !exists("foldername_analysis") ) {
     
-    # set SIAs and vaccination parameters for each scenario to minimize errors for running
-    # set.sia         <-   c(1, 0, 1, 0, 1, 0, 1, 0, 0, 1,    1, 1, 1, 1)
-    # set.vaccination <-   c(0, 2, 2, 1, 0, 2, 2, 1, 0, 2,    2, 2, 2, 2)
-    # set.vaccination <- c(0, 2, 2, 1, 0, 2, 2, 1, 0, 2)
+    foldername <- paste0 (
+      format(Sys.time(),format="%Y%m%d"),
+      "_v",
+      vaccination,
+      "_s",
+      using_sia,
+      "_",
+      det_stoch
+    )
     
-    # ------------------------------------------------------------------------------
-    # II		Options
-    # ------------------------------------------------------------------------------
-    # vaccination	<- set.vaccination [index]  # Whether children are vaccinated. 0: No vaccination; 1: Only MCV1; 2: MCV1 and MCV2
-    # using_sia	  <- set.sia [index]     	    # Whether supplementary immunization campaigns are used. 0: no SIA; 1: with SIA
+    dir.create(
+      file.path(
+        paste0(
+          getwd(),
+          "/outcome/", save.scenario, "/",
+          foldername
+        )
+      ), recursive = T
+    )
     
-    ages 		    <- c (0:100)	              # Numeric vector with age-strata that are reported (Model ALWAYS models 101 age-groups; 0-2yo in weekly age-strata, and 3-100yo in annual age-strata)
-    psa 		    <- psa		                  # Number of PSAs to run (0 to use deterministic).
+    dir.create(
+      file.path(
+        paste0(
+          getwd(),
+          "/outcome/", save.scenario, "/",
+          foldername,
+          "/input"
+        )
+      ), recursive = T
+    )
     
+    dir.create(
+      file.path(
+        paste0(
+          getwd(),
+          "/outcome/", save.scenario, "/",
+          foldername,
+          "/output"
+        )
+      ), recursive = T
+    )
     
-    # ------------------------------------------------------------------------------
-    # III	 Input-data
-    # ------------------------------------------------------------------------------
-    # if (index == 9) {
-    #   
-    #   data_coverage_routine 	<- paste0 ("scenarios2019/coverage_routine_", scenario.name[index-1], ".csv")
-    #   
-    #   # file with SIA data (csv; in ./input/)
-    #   data_coverage_sia 		<- paste0 ("scenarios2019/coverage_sia_", scenario.name[index-1], ".csv") # "SIA_Gavi_1.csv" #"coverage_sia_imputed.csv"
-    #   
-    # } else {
-    #   
-    #   data_coverage_routine 	<- paste0("scenarios2019/coverage_routine_", scenario, ".csv")
-    #   # file with SIA data (csv; in ./input/)
-    #   data_coverage_sia 		<- paste0("scenarios2019/coverage_sia_", scenario, ".csv")  
-    #   
-    # }
-    # 
-    # if (index %in% c(1,5)) {
-    #   data_coverage_routine 	<- paste0("scenarios2019/coverage_routine_", scenario.name[2], ".csv")
-    # }
-    
-    # vaccine coverage file for routine immunisation
-    data_coverage_routine <- paste0 (vaccine_coverage_folder, 
-                                     vaccine_coverage_subfolder,
-                                     "routine_",
-                                     scenario, 
-                                     ".csv")
-    
-    # separate vaccine coverage file for SIA (supplementary immunisation activities)
-    data_coverage_sia <- paste0 (vaccine_coverage_folder, 
-                                 vaccine_coverage_subfolder,
-                                 "sia_",
-                                 scenario, 
-                                 ".csv")
-    
-    # file with timeliness data (csv; in ./input/)
-    data_timeliness <- "timeliness_new.csv"
-    
-    # file with R0 (csv; in ./input/)
-    data_r0 		<- "r0.csv" #"r0est.csv"
-    
-    # file with life-expectancies (csv; in ./input/)
-    data_life_exp 	<- "demographicdata2019/201910gavi-4_dds-201910_lx0_both.csv"
-    #data_life_exp 	<- "new/lx_old.csv"
-    
-    # template Gavi (used to check if all data is present)
-    # data_gavi_template <- "central-burden-template_2019104.csv" 
-    data_gavi_template <- burden_template
-    
-    # file with CFRs (csv; in ./input/)
-    data_cfr 		<- "cfrs_new_noage.csv"
-    
-    # file with population sizes (csv; in ./input/)
-    data_pop 		<- "demographicdata2019/201910gavi-4_dds-201910_2_int_pop_both.csv"
-    #data_pop 		<- "new/pop_old.csv"
-    
-    # file with contact_data
-    data_contact	<- "contact/uk_polymod_physical_101.csv"  # use newly rescaled polymod to yearly age bands to 100
-    
-    # data with PSA variables
-    # should be the same for each scenario. Will be CREATED if does not exist
-    data_psa 		<- "psa_variables.csv"
-    
-    # expected remaining years of life
-    # data_life_exp_remain <- "demographicdata2019/201910gavi-4_dds-201910_2_life_ex_both.csv"
-    data_life_exp_remain <- "demographicdata2019/201910gavi-4_dds-201910_2_life_ex_both_full.csv"
-    
-    
-    # ------------------------------------------------------------------------------
-    # IV		Advanced options (only change these if you know what you're doing!)
-    # ------------------------------------------------------------------------------
-    
-    sia.method	<- 1				             # 1 = variable take; 2 = variable degree
-    dinf		    <- 14				             # duration of infection (days)
-    amplitude 	<- 0.05			             # amplitude for seasonality
-    take 		    <- c (0.85, 0.95, 0.98)  # vaccine efficacy for take1 (take dose 1, before age 1), take2 (dose 1, after age 1) & take3 (dose 2). Note that dose2 only has an effect if vaccine==2.
-    degree 		  <- c (0.85, 0.95, 0.98)  # vaccine efficacy for degree1 (degree dose 1, before age 1), degree2 (dose 1, after age 1) & degree3 (dose 2). Note that dose2 only has an effect if vaccine==2.			
-    tstep			  <- 1000				           # Number of time steps in a year
-    
-    # ----------------------------------------------------------------------------
-    # Measles model
-    # filename of compiled fortran-model (in ./model/compiled/)
-    # ----------------------------------------------------------------------------
-    # measles_model <- "vaccine2019_sia_singlematrix" # change this to reflect the right version of the fortran code
-    measles_model <- "vaccine2019_sia_singlematrix.exe" # change this to reflect the right version of the fortran code
-    # ----------------------------------------------------------------------------
-    
-    # number of clusters to use
-    # if larger than 1, country-specific model runs are distributed over specified number of clusters
-    # note that model uses a lot of memory, so might not want to max out all clusters
-    use_cluster  <- cluster_cores   # debug #
-    remove_files <- T
-    
-    # may want to process results after generating all data. Note OUTPUT files are not removed if remove_files == TRUE and process_results == FALSE
-    process_results <- F
-    run_model       <- TRUE
-    # folder will be created if not given - should usually be commented out, except when run model is FALSE
-    
-    
-    # ------------------------------------------------------------------------------
-    # V		Debug
-    # ------------------------------------------------------------------------------
-    
-    debug_country		  <- "*"			#ISO3 codes of country to debug, * to debug all countries
-    debug_spinup		  <- FALSE		#TRUE/FALSE: If true, generate data for spin-up period of model
-    debug_model			  <- FALSE		#TRUE/FALSE: If true: generate data for period after spin-up
-    debug_compartments<- 0			  #TRUE/FALSE: If true: output size of each compartment. If false: output number of cases. If 2: debug vaccinated
-    debug_age         <- 0        #0-2. If 0: output all in annual age-strata. If 1: output age 0-2 in weekly age-strata, 3-100 in annual age-strata. If 2: sum all age-strata.
-    debug_timepoints	<- 0			  #0-2. If 0: output per year. If 1: output per timepoint and report first 25% of timepoints. If 2: output per timepoint and report all timepoints.
-    debug_relative		<- FALSE		#If true: output proportion of new cases. If false, output absolute number of new cases.
-    
-    # START OF MODEL  
-    
-    # ----------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------
-    # SETUP
-    
-    # wd <- paste0(wd, project.name, "/")
-    # setwd (wd)			
-    # source (paste0("./gavi_setup_v", version, "_singlematrix.R"))
-    
-    # load correct libraries when on cluster (using open MPI)
-    if ("cluster_using_openmpi" %in% commandArgs()){
-      using_openmpi <- TRUE
-      require("doMPI")
-      require("parallel")
-      cl <- startMPIcluster()
-      registerDoMPI(cl)
-      print("using openMPI")
-    } else {
-      using_openmpi <- FALSE
-      print("no openMPI")
-    }
-    
-    
-    # load required libraries
-    # if (!using_openmpi) {
-    #   require("doParallel")
-    # }
-    
-    # function for each country
-    # source (paste0(wd,"gavi_runcountry_v", version, "_singlematrix.R"))
-    
-    # clean environment
-    if(file.exists("gavi_progress")){
-      file.remove("gavi_progress")
-    }
-    
-    # are we running a PSA - a deterministic or "stochastic" model?		
-    if(psa==0) {
-      det_stoch <- "deter" # deterministic
-      runs      <- 1
+    if (psa > 0) {
       
-    } else {
-      det_stoch <- "stoch" # stochastic
-      runs      <- psa
-    }
-    
-    # create folder with correct name for in- and output data if not yet exists
-    # typically foldername should not exist - but may come in handy when only processing results
-    if( !exists("foldername_analysis") ){
-      foldername <- paste0(
-        format(Sys.time(),format="%Y%m%d"),
-        "_v",
-        vaccination,
-        "_s",
-        using_sia,
-        "_",
-        det_stoch
-      )
-      dir.create(
-        file.path(
-          paste0(
-            getwd(),
-            "/outcome/", save.scenario, "/",
-            foldername
-          )
-        ), recursive = T
-      )
-      dir.create(
-        file.path(
-          paste0(
-            getwd(),
-            "/outcome/", save.scenario, "/",
-            foldername,
-            "/input"
-          )
-        ), recursive = T
-      )
-      
-      dir.create(
-        file.path(
-          paste0(
-            getwd(),
-            "/outcome/", save.scenario, "/",
-            foldername,
-            "/output"
-          )
-        ), recursive = T
-      )
-      
-      if (psa > 0) {
+      for(p in 1:psa){
+        if(p<10){
+          p <- paste0("00",p)
+        } else if(p<100){
+          p <- paste0("0",p)
+        }
         
+        dir.create(
+          file.path(
+            paste0(
+              getwd(),
+              "/outcome/", save.scenario, "/",
+              foldername,
+              "/input/",
+              paste0("run",p)
+            )
+          ), recursive = T
+        )
+        
+        dir.create(
+          file.path(
+            paste0(
+              getwd(),
+              "/outcome/", save.scenario, "/",
+              foldername,
+              "/output/",
+              paste0("run",p)
+            )
+          ), recursive = T
+        )
+      }
+    }
+  } else {
+    foldername <- foldername_analysis
+  }
+  
+  # ----------------------------------------------------------------------------
+  # ----------------------------------------------------------------------------
+  
+  
+  # log
+  writelog ("gavi_log",paste0("Main; gavi.r started"))
+  
+  if (using_openmpi) {
+    writelog ("gavi_log", paste0 ("Main; OpenMPI enabled"))
+  } else {
+    writelog ("gavi_log", paste0 ("Main; OpenMPI disabled"))
+  }
+  
+  # read_data
+  coverage_routine	<- fread (paste0 (data_coverage_routine))
+  coverage_sia		  <- fread (paste0 (data_coverage_sia))
+  timeliness			  <- fread (paste0 ("input/", data_timeliness))
+  cfr					      <- fread (paste0 ("input/", data_cfr))
+  rnought			    	<- fread (paste0 ("input/", data_r0))
+  population		  	<- fread (paste0 ("input/", data_pop))
+  lexp 		      		<- fread (paste0 ("input/", data_life_exp))
+  template		    	<- fread (paste0 (data_gavi_template))
+  contact			    	<- fread (paste0 ("input/", data_contact))
+  lexp_remain       <- fread (paste0 ("input/", data_life_exp_remain)) 
+  
+  # coverage_sia has multiple entries per year for some countries, take only the first entry
+  coverage_sia <- coverage_sia[, .SD[1], by = c("country_code", "year")]
+  
+  # --------------------------------------------------------------------------
+  # if psa variables file does not exist, then create psa variables file
+  if (psa > 0) {
+    if (file.exists(paste0 ("input/", data_psa))){
+      
+      # read csv if file already exists
+      psa_var <- fread (paste0 ("input/", data_psa))
+      
+      # check if psa_var corresponds with psa
+      if(nrow(psa_var) != psa){
+        stop(paste0("Number of runs in PSA file is not the same as those specified! Variables used in the same run in each scenario should be similar. Delete or rename './input/",data_psa," if a new file needs to be created, or change the number of PSAs to ",nrow(psa_var)," if the same file should be used."))
+      }
+    } else {
+      
+      # create csv if file does not exist
+      psa_var <- data.table(
+        run_id = c(1:psa),
+        take1_input     = rep (NA, psa),
+        take2_input     = rep (NA, psa),
+        take3_input     = rep (NA, psa),
+        mortality_input = rep (NA, psa)
+      )
+      
+      for(t in 1:3){
+        # use 5% difference in take
+        tk <- runif(n=psa, min=(take[t]*0.95), max=(take[t]*1.05))
+        # vaccine efficacy is bounded between 0 and 1
+        tk [which(tk < 0)] <- 0
+        tk [which(tk > 1)] <- 1
+        psa_var[,paste0("take",t,"_input")] <- tk
+      }
+      
+      # use 25% difference in mortality, will be multiplied by CFR in each country
+      psa_var [,"mortality_input"] <- runif(n=psa,min=0.75,max=1.25)
+      
+      fwrite (psa_var, paste0 ("input/", data_psa))
+    }
+  }
+  # --------------------------------------------------------------------------
+  
+  # process data
+  
+  # if countries are specified to all, then set countries to all countries in coverage file
+  if (countries == "all") {
+    countries	<- as.character(unique(coverage_routine[, country_code]))  
+  }
+  
+  # countries	<- as.character(unique(coverage_routine[,country_code]))[1]  # debug #
+  # countries	<- c ("ETH", "BGD", "SSD", "NGA")
+  # countries	<- c ("ETH")
+  # countries	<- as.character(unique(coverage_routine[,country_code]))
+  
+  # change to run only for a set of specified missing countries
+  # countries <- missing_countries
+  
+  # years 		<- sort(unique(as.numeric(coverage_routine[,year]))) this no longer works as some imput files don't have any years
+  years <- as.numeric (c(1980:2100))
+  
+  for(c in countries) {
+    if(psa > 1){
+      for(p in 1:psa){
+        write(
+          paste0(
+            c,
+            " ",
+            paste0(c(rep(0,(nchar(psa)-nchar(p))),p),collapse=""),
+            " 0"
+          ),
+          file   = "gavi_progress",
+          append = TRUE
+        )
+      }
+    } else {
+      write(
+        paste0(
+          c,
+          " ",
+          "1 0"
+        ),
+        file   = "gavi_progress",
+        append = TRUE
+      )
+    }
+  }
+  
+  contact <- contact [ , -"contact.age"]
+  contact <- as.matrix (contact)
+  
+  
+  r0_basic <- Re (eigen (contact * dinf, only.values = T)$values[1])
+  gamma    <- 1 / (dinf * tstep/365)
+  
+  # Run model
+  writelog ("gavi_log", paste0 ("Main; Foldername: ", foldername))
+  
+  if(using_openmpi | use_cluster > 1){
+    if(!using_openmpi){
+      
+      if ( use_cluster != detectCores() ) {
+        warning (paste0(detectCores(), " cores detected but ", use_cluster, " specified."))
+      }
+      
+      cl <- makeCluster (use_cluster)
+      registerDoParallel (cl)
+      
+    } else {
+      print(paste0("Clustersize: ", clusterSize(cl)))
+    }
+  }
+  
+  # foreach will run countries and PSA runs in parralel if a parallel backend 
+  # is registered, and sequentially otherwise
+  combine <- foreach (
+    ii = 1:length(countries),
+    .packages = c("data.table"),
+    .errorhandling="pass", 
+    .export = c("runCountry", "writelog", "expandMatrix", "updateProgress")
+  ) %:% foreach (
+    r = 1:runs,
+    .errorhandling = "pass"
+  ) %dopar% {
+    
+    out_run <- runCountry (ii                 = ii, 
+                           countries          = countries, 
+                           years              = years,
+                           vaccination        = vaccination, 
+                           using_sia          = using_sia, 
+                           dinf               = dinf, 
+                           gamma              = gamma, 
+                           r0_basic           = r0_basic, 
+                           amplitude          = amplitude, 
+                           take               = take, 
+                           degree             = degree, 
+                           sia.method         = sia.method,
+                           coverage_routine   = coverage_routine, 
+                           coverage_sia       = coverage_sia, 
+                           timeliness         = timeliness, 
+                           contact            = contact, 
+                           rnought            = rnought, 
+                           population         = population, 
+                           lexp               = lexp, 
+                           cfr                = cfr,
+                           tstep              = tstep,
+                           save.scenario      = save.scenario, 
+                           foldername         = foldername,  
+                           measles_model      = measles_model, 
+                           debug_model        = debug_model, 
+                           debug_spinup       = debug_spinup, 
+                           debug_age          = debug_age, 
+                           debug_compartments = debug_compartments, 
+                           debug_country      = debug_country, 
+                           debug_relative     = debug_relative, 
+                           debug_timepoints   = debug_timepoints,
+                           r                  = r,
+                           runs               = runs, 
+                           psa                = psa, 
+                           psa_var            = psa_var,
+                           process_results    = process_results, 
+                           run_model          = run_model, 
+                           remove_files       = remove_files
+    )
+    return(out_run)
+  }
+  
+  if(using_openmpi | use_cluster > 1){
+    if(!using_openmpi){
+      stopCluster(cl)
+    } else {
+      closeCluster(cl)
+    }
+  }
+  
+  # check for errors
+  errorcount <- 0
+  
+  for (i in 1:length(combine)){
+    if("error" %in% class(combine[[i]])){
+      errormessage <- paste0("Error in task ",i,": ",combine[[i]])
+      warning(errormessage)
+      writelog(paste0(gavi.dir,"gavi_log"),errormessage)
+      errorcount <- errorcount + 1
+      #remove from data
+      combine[[i]] <- NULL
+    }
+  }
+  #if(errorcount > 0){
+  #	stop(paste0("There were ",errorcount," errors."))
+  #}
+  
+  for(ii in 1:length(countries)){
+    for(r in 1:runs){
+      if(ii==1 & r==1){
+        out_gavi_agestratified <- combine[[1]][[1]]
+      } else {
+        out_gavi_agestratified <- rbindlist(
+          list(
+            out_gavi_agestratified,
+            combine[[ii]][[r]]
+          )
+        )
+      }
+    }
+  }
+  
+  if (process_results){
+    #clean environment
+    if(remove_files){
+      if(psa >0){
         for(p in 1:psa){
           if(p<10){
             p <- paste0("00",p)
           } else if(p<100){
             p <- paste0("0",p)
           }
-          
-          dir.create(
-            file.path(
-              paste0(
-                getwd(),
-                "/outcome/", save.scenario, "/",
-                foldername,
-                "/input/",
-                paste0("run",p)
-              )
-            ), recursive = T
-          )
-          
-          dir.create(
-            file.path(
-              paste0(
-                getwd(),
-                "/outcome/", save.scenario, "/",
-                foldername,
-                "/output/",
-                paste0("run",p)
-              )
-            ), recursive = T
-          )
+          do.call(file.remove, list(list.files(paste0("./outcome/", save.scenario, "/",foldername,"/output/run",p,"/"), full.names = TRUE)))
         }
+      } else {
+        do.call(file.remove, list(list.files(paste0("./outcome/", save.scenario, "/",foldername,"/output/"), full.names = TRUE)))
       }
+      
+      if(Sys.info()[["sysname"]] == "Windows"){
+        do.call(file.remove, list("./model/compiled/fort.6"))
+      }
+    }
+    
+    # write output
+    if(psa >0){
+      det_stoch <- "stochastic"
     } else {
-      foldername <- foldername_analysis
+      det_stoch <- "deterministic"
     }
     
-    # ----------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------
+    # make output similar to template
+    # only report years to be reported
+    out_gavi_agestratified <- out_gavi_agestratified[year %in% unique(template[, year])]
+    out_gavi_agestratified[, country_name := unique(template[country == country_code, country_name]), by = country_code]
+    out_gavi_agestratified[, "disease"] <- "Measles"
+    colnames(out_gavi_agestratified)[3] <- "country"
+    out_gavi_agestratified <- out_gavi_agestratified[, colnames(template), with=F]
+    setorder(out_gavi_agestratified, country, year, age)
     
+    # write data
+    filename <- paste0(
+      "outcome/", save.scenario, "/",
+      foldername,
+      "/",
+      format(Sys.time(),format="%Y%m%d"),
+      "_gavi_measles_",
+      c("vax_none","vax_mcv1","vax_mcv1_mcv2")[vaccination+1],
+      c("_sia_no","_sia_yes")[using_sia+1],
+      "_",
+      det_stoch,
+      "_agestratified.csv"
+    )
     
-    # log
-    writelog ("gavi_log",paste0("Main; gavi.r started"))
+    z <- 1
     
-    if (using_openmpi) {
-      writelog ("gavi_log", paste0 ("Main; OpenMPI enabled"))
-    } else {
-      writelog ("gavi_log", paste0 ("Main; OpenMPI disabled"))
-    }
-    
-    # read_data
-    coverage_routine	<- fread (paste0 (data_coverage_routine))
-    coverage_sia		  <- fread (paste0 (data_coverage_sia))
-    timeliness			  <- fread (paste0 ("input/", data_timeliness))
-    cfr					      <- fread (paste0 ("input/", data_cfr))
-    rnought			    	<- fread (paste0 ("input/", data_r0))
-    population		  	<- fread (paste0 ("input/", data_pop))
-    lexp 		      		<- fread (paste0 ("input/", data_life_exp))
-    template		    	<- fread (paste0 (data_gavi_template))
-    contact			    	<- fread (paste0 ("input/", data_contact))
-    lexp_remain       <- fread (paste0 ("input/", data_life_exp_remain)) 
-    
-    # coverage_sia has multiple entries per year for some countries, take only the first entry
-    coverage_sia <- coverage_sia[, .SD[1], by = c("country_code", "year")]
-    
-    # --------------------------------------------------------------------------
-    # if psa variables file does not exist, then create psa variables file
-    if (psa > 0) {
-      if (file.exists(paste0 ("input/", data_psa))){
-        
-        # read csv if file already exists
-        psa_var <- fread (paste0 ("input/", data_psa))
-        
-        # check if psa_var corresponds with psa
-        if(nrow(psa_var) != psa){
-          stop(paste0("Number of runs in PSA file is not the same as those specified! Variables used in the same run in each scenario should be similar. Delete or rename './input/",data_psa," if a new file needs to be created, or change the number of PSAs to ",nrow(psa_var)," if the same file should be used."))
-        }
-      } else {
-        
-        # create csv if file does not exist
-        psa_var <- data.table(
-          run_id = c(1:psa),
-          take1_input     = rep (NA, psa),
-          take2_input     = rep (NA, psa),
-          take3_input     = rep (NA, psa),
-          mortality_input = rep (NA, psa)
-        )
-        
-        for(t in 1:3){
-          # use 5% difference in take
-          tk <- runif(n=psa, min=(take[t]*0.95), max=(take[t]*1.05))
-          # vaccine efficacy is bounded between 0 and 1
-          tk [which(tk < 0)] <- 0
-          tk [which(tk > 1)] <- 1
-          psa_var[,paste0("take",t,"_input")] <- tk
-        }
-        
-        # use 25% difference in mortality, will be multiplied by CFR in each country
-        psa_var [,"mortality_input"] <- runif(n=psa,min=0.75,max=1.25)
-        
-        fwrite (psa_var, paste0 ("input/", data_psa))
-      }
-    }
-    # --------------------------------------------------------------------------
-    
-    # process data
-    
-    # if countries are not specified, then set countries to all countries in coverage file
-    if (countries == "") {
-      countries	<- as.character(unique(coverage_routine[, country_code]))  
-    }
-    
-    # countries	<- as.character(unique(coverage_routine[,country_code]))[1]  # debug #
-    # countries	<- c ("ETH", "BGD", "SSD", "NGA")
-    # countries	<- c ("ETH")
-    # countries	<- as.character(unique(coverage_routine[,country_code]))
-    
-    # change to run only for a set of specified missing countries
-    # countries <- missing_countries
-    
-    # years 		<- sort(unique(as.numeric(coverage_routine[,year]))) this no longer works as some imput files don't have any years
-    years <- as.numeric (c(1980:2100))
-    
-    for(c in countries) {
-      if(psa > 1){
-        for(p in 1:psa){
-          write(
-            paste0(
-              c,
-              " ",
-              paste0(c(rep(0,(nchar(psa)-nchar(p))),p),collapse=""),
-              " 0"
-            ),
-            file="gavi_progress",
-            append=TRUE
-          )
-        }
-      } else {
-        write(
-          paste0(
-            c,
-            " ",
-            "1 0"
-          ),
-          file="gavi_progress",
-          append=TRUE
-        )
-      }
-    }
-    
-    contact <- contact [,-"contact.age"]
-    contact <- as.matrix (contact)
-    
-    
-    r0_basic <- Re (eigen (contact*dinf, only.values=T)$values[1])
-    gamma    <- 1/(dinf*tstep/365)
-    
-    # Run model
-    writelog ("gavi_log", paste0 ("Main; Foldername: ", foldername))
-    
-    if(using_openmpi | use_cluster > 1){
-      if(!using_openmpi){
-        if( use_cluster != detectCores() ){
-          warning(paste0(detectCores(), " cores detected but ", use_cluster, " specified."))
-        }
-        cl <- makeCluster(use_cluster)
-        registerDoParallel(cl)
-      } else {
-        print(paste0("Clustersize: ", clusterSize(cl)))
-      }
-    }
-    
-    # foreach will run countries and PSA runs in parralel if a parallel backend 
-    # is registered, and sequentially otherwise
-    combine <- foreach (
-      ii = 1:length(countries),
-      .packages = c("data.table"),
-      .errorhandling="pass"
-    ) %:% foreach (
-      r = 1:runs,
-      .errorhandling = "pass"
-    ) %dopar% {
+    while (file.exists(filename)) {
+      warning(paste0(filename)," already exists, adding _",z)
       
-      out_run <- runCountry (ii, 
-                             countries, 
-                             years,
-                             vaccination, 
-                             using_sia, 
-                             dinf, 
-                             gamma, 
-                             r0_basic, 
-                             amplitude, 
-                             take, 
-                             degree, 
-                             sia_method,
-                             coverage_routine, 
-                             coverage_sia, 
-                             timeliness, 
-                             contact, 
-                             rnought, 
-                             population, 
-                             lexp, 
-                             cfr,
-                             tstep,
-                             save.scenario, 
-                             foldername,  
-                             measles_model, 
-                             debug_model, 
-                             debug_spinup, 
-                             debug_age, 
-                             debug_compartments, 
-                             debug_country, 
-                             debug_relative, 
-                             debug_timepoints,
-                             r,
-                             runs, 
-                             psa, 
-                             psa_var,
-                             process_results, 
-                             run_model, 
-                             remove_files
-      )
-      return(out_run)
-    }
-    
-    if(using_openmpi | use_cluster > 1){
-      if(!using_openmpi){
-        stopCluster(cl)
-      } else {
-        closeCluster(cl)
-      }
-    }
-    
-    # check for errors
-    errorcount <- 0
-    
-    for (i in 1:length(combine)){
-      if("error" %in% class(combine[[i]])){
-        errormessage <- paste0("Error in task ",i,": ",combine[[i]])
-        warning(errormessage)
-        writelog(paste0(gavi.dir,"gavi_log"),errormessage)
-        errorcount <- errorcount + 1
-        #remove from data
-        combine[[i]] <- NULL
-      }
-    }
-    #if(errorcount > 0){
-    #	stop(paste0("There were ",errorcount," errors."))
-    #}
-    
-    for(ii in 1:length(countries)){
-      for(r in 1:runs){
-        if(ii==1 & r==1){
-          out_gavi_agestratified <- combine[[1]][[1]]
-        } else {
-          out_gavi_agestratified <- rbindlist(
-            list(
-              out_gavi_agestratified,
-              combine[[ii]][[r]]
-            )
-          )
-        }
-      }
-    }
-    
-    if (process_results){
-      #clean environment
-      if(remove_files){
-        if(psa >0){
-          for(p in 1:psa){
-            if(p<10){
-              p <- paste0("00",p)
-            } else if(p<100){
-              p <- paste0("0",p)
-            }
-            do.call(file.remove, list(list.files(paste0("./outcome/",save.scenario, "/",foldername,"/output/run",p,"/"), full.names = TRUE)))
-          }
-        } else {
-          do.call(file.remove, list(list.files(paste0("./outcome/",save.scenario, "/",foldername,"/output/"), full.names = TRUE)))
-        }
-        
-        if(Sys.info()[["sysname"]] == "Windows"){
-          do.call(file.remove, list("./model/compiled/fort.6"))
-        }
-      }
-      
-      # write output
-      if(psa >0){
-        det_stoch <- "stochastic"
-      } else {
-        det_stoch <- "deterministic"
-      }
-      
-      # make output similar to template
-      # only report years to be reported
-      out_gavi_agestratified <- out_gavi_agestratified[year %in% unique(template[, year])]
-      out_gavi_agestratified[, country_name := unique(template[country == country_code, country_name]), by = country_code]
-      out_gavi_agestratified[, "disease"] <- "Measles"
-      colnames(out_gavi_agestratified)[3] <- "country"
-      out_gavi_agestratified <- out_gavi_agestratified[, colnames(template), with=F]
-      setorder(out_gavi_agestratified, country, year, age)
-      
-      # write data
       filename <- paste0(
-        "outcome/",save.scenario, "/",
+        "outcome/", save.scenario, "/",
         foldername,
         "/",
         format(Sys.time(),format="%Y%m%d"),
@@ -1554,246 +1598,254 @@ runScenario <- function (vaccine_coverage_folder    = "",
         c("_sia_no","_sia_yes")[using_sia+1],
         "_",
         det_stoch,
-        "_agestratified.csv"
+        "_agestratified_",
+        z,
+        ".csv"
       )
       
-      z <- 1
-      
-      while (file.exists(filename)) {
-        warning(paste0(filename)," already exists, adding _",z)
-        
-        filename <- paste0(
-          "outcome/",save.scenario, "/",
-          foldername,
-          "/",
-          format(Sys.time(),format="%Y%m%d"),
-          "_gavi_measles_",
-          c("vax_none","vax_mcv1","vax_mcv1_mcv2")[vaccination+1],
-          c("_sia_no","_sia_yes")[using_sia+1],
-          "_",
-          det_stoch,
-          "_agestratified_",
-          z,
-          ".csv"
-        )
-        
-        if(!file.exists(filename)){
-          break
-        }
-        z <- z + 1
+      if(!file.exists(filename)){
+        break
       }
-      
+      z <- z + 1
+    }
+    
+    fwrite(
+      out_gavi_agestratified,
+      filename,
+      row.names=FALSE
+    )
+  }
+  
+  # write file stochastic variables
+  if(psa > 0){
+    stoch_file <- paste0(format(Sys.time(),format="%Y%m"),"_out_measles_stochastic_variables.csv")
+    if(file.exists(paste0("outcome/",stoch_file))){
+      #read csv if file already exists
+      stoch_file <- read.csv(paste0("input/",data_psa))
+      #check if psa_var corresponds with psa
+      if(nrow(stoch_file) != psa){
+        stop(paste0("Number of runs in PSA output file is not the same as those specified! File is NOT overwritten, please delete or rename the old file if a new file needs to be generated"))
+        writelog("gavi_log",paste0("Main; gavi.r aborted PSA error"))
+        if(using_openmpi){
+          mpi.quit()
+        }
+      }
+    } else {
+      # create csv if file does not exist
+      print("Creating stochastic parameters file")
+      stoch_file <- psa_var[,c("run_id","take1_input","take2_input","take3_input")]
+      #get country specific CFR
+      mortality <- as.numeric(psa_var[,"mortality_input"])
+      for(c in 1:length(countries)){
+        cfr <- Crit[which(Crit$country==as.character(countries[c])),"CFR"]
+        stoch_file[,paste0(countries[c],"_CFR")] <- cfr*mortality
+      }
       fwrite(
-        out_gavi_agestratified,
-        filename,
+        stoch_file,
+        paste0(
+          "outcome/",
+          format(Sys.time(),format="%Y%m"),
+          "_out_measles_stochastic_variables.csv"
+        ),
         row.names=FALSE
       )
     }
-    
-    # write file stochastic variables
-    if(psa > 0){
-      stoch_file <- paste0(format(Sys.time(),format="%Y%m"),"_out_measles_stochastic_variables.csv")
-      if(file.exists(paste0("outcome/",stoch_file))){
-        #read csv if file already exists
-        stoch_file <- read.csv(paste0("input/",data_psa))
-        #check if psa_var corresponds with psa
-        if(nrow(stoch_file) != psa){
-          stop(paste0("Number of runs in PSA output file is not the same as those specified! File is NOT overwritten, please delete or rename the old file if a new file needs to be generated"))
-          writelog("gavi_log",paste0("Main; gavi.r aborted PSA error"))
-          if(using_openmpi){
-            mpi.quit()
-          }
-        }
-      } else {
-        # create csv if file does not exist
-        print("Creating stochastic parameters file")
-        stoch_file <- psa_var[,c("run_id","take1_input","take2_input","take3_input")]
-        #get country specific CFR
-        mortality <- as.numeric(psa_var[,"mortality_input"])
-        for(c in 1:length(countries)){
-          cfr <- Crit[which(Crit$country==as.character(countries[c])),"CFR"]
-          stoch_file[,paste0(countries[c],"_CFR")] <- cfr*mortality
-        }
-        fwrite(
-          stoch_file,
-          paste0(
-            "outcome/",
-            format(Sys.time(),format="%Y%m"),
-            "_out_measles_stochastic_variables.csv"
-          ),
-          row.names=FALSE
-        )
-      }
-    }
-    
-    
-    # process results
-    
-    report_years <- sort(unique(template$year))
-    ages         <- sort(unique(template$age))
-    
-    # get years that the model was run for (can be different from reporting years)
-    years 		   <- sort(unique(as.numeric(coverage_routine[,year])))
-    
-    
-    # set cfrs before 2000 to 2000
-    cfr.year <- rbindlist(lapply(1980:1999, function(i) copy(cfr[Year ==2000,])[,Year := i]))
-    cfr <- rbind(cfr.year, cfr)
-    # set Kosovo mortaity to Serbia as it was once Serbia
-    cfr.xk <- rbindlist(lapply("XK", function(i) copy(cfr[Code == "SRB",])[,Code := i]))
-    cfr.xk[, Country := "Kosovo"]
-    cfr <- rbind(cfr, cfr.xk)
-    
-    # expand cfr by age so that it uses the right value for <5 and 5-9 and 0 for >=10
-    cfr.year.all <- rbindlist(lapply(0:100, function(i) copy(cfr)[, age:=i]))
-    over10 <- T
-    if (over10){
-      cfr.year.all[, cfr.value :=  if (age < 5) under5 else if (age > 4 & age <10) over5 else 0, 
-                   by = c("Code", "Year", "age") ] 
-    } else {
-      cfr.year.all[, cfr.value :=  if (age < 5) under5 else if (age > 4 ) over5, 
-                   by = c("Code", "Year", "age") ]
-    }
-    cfr.year.all$Year = as.integer(cfr.year.all$Year)
-    
-    
-    # ANALYSE RUNS 
-    
-    # get the names of all the files in all the subfolders the stochastic runs specified in scenarioname; separate cases and popsize files
-    # will use those to read them all in at once and put in a data.table
-    myfiles <- list.files(path = paste0("outcome/",save.scenario, "/",foldername,"/output/"), 
-                          recursive = T, pattern = "cases", full.names = T)
-    myfiles.popsize <- list.files(path = paste0("outcome/",save.scenario, "/",foldername,"/output"), 
-                                  recursive = T, pattern = "popsize", full.names = T)
-    
-    # read in all those files specified in myfiles and put them in a single data table
-    all_cases  <- rbindlist(lapply(myfiles, function(fn, ...) {
-      res <- withCallingHandlers(
-        fread(fn, stringsAsFactors=F, check.names = F, fill = T, 
-              col.names = as.character(c(0:100))),
-        warning = function(w) { warning(w, fn); }
-      )
-      res[, country := gsub("^.+/(\\w+)_age.+$","\\1", fn) ]             # get the country code from the filename
-      res[, year := years]                                               # add year of simulation (from coverage data file)
-    })) 
-    
-    # switch back Kosovo to XK otherwise montagu returns error on upload
-    all_cases[country == "XKX", country := "XK"]
-    
-    all_popsize  <- rbindlist(lapply(myfiles.popsize, function(fn, ...) {
-      res <- fread(fn, stringsAsFactors=F, check.names = F, col.names = as.character(c(0:100)))
-      res[, country := gsub("^.+/(\\w+)_age.+$","\\1", fn) ]             # get the country code from the filename
-      res[, year := years]                                               # add year of model was run for (from coverage data file)
-    })) 
-    all_popsize[country == "XKX", country := "XK"]
-    
-    all_cases.m <- melt(all_cases, id.vars = c("year","country"), 
-                        measure.vars = c(as.character(0:100)), 
-                        variable.name = "age", value.name = "cases", variable.factor = F)
-    
-    all_popsize.m <- melt(all_popsize, id.vars = c("year", "country"),
-                          measure.vars = c(as.character(0:100)), 
-                          variable.name = "age", value.name = "cohort_size", variable.factor = F)
-    
-    # melt produces character variable when variable.factor is set to FALSE - change it to integer
-    all_cases.m[, age := lapply(.SD, as.integer), .SDcols = "age"]
-    all_popsize.m[, age := lapply(.SD, as.integer), .SDcols = "age"]
-    
-    # merge cases and cohort sizes
-    all_runs = merge(all_cases.m, all_popsize.m, by = c("year", "age", "country"), all.x = T)
-    
-    # add country_name, life expectancy and disease (Measles) to match template file
-    country_names <- unique(subset(template, select = c("country", "country_name")))
-    c_names <- country_names$country_name; names(c_names) = country_names$country
-    life.exp2 <- rbindlist(lapply(2100, function(i) copy(lexp[year == 2099])[, year:=i]))
-    life.exp <- rbind(lexp, life.exp2)
-    life.exp.all <- rbindlist(lapply(0:100, function(i) copy(life.exp)[, age:=i]))
-    colnames(life.exp)[8] <- "LE"
-    #all_runs[, c("country_name", "disease", "LE") := list(c_names[country], "Measles", life.exp[country])]
-    
-    all_runs[, c("country_name", "disease") := list(c_names[country],"Measles")]
-    
-    
-    # merge mortality rates from CFR file
-    all_runs <- merge(all_runs, subset(cfr.year.all, 
-                                       select = c( "Code", "Year", "age", "cfr.value")),
-                      by.x = c("country", "year", "age" ), by.y = c("Code", "Year", "age"), 
-                      sort= F, all.x = T)
-    
-    all_runs <- merge (all_runs, 
-                       subset (life.exp, select= c("country_code", "year", "LE")), 
-                       by.x = c("country", "year"), 
-                       by.y = c("country_code", "year"))
-    
-    # ----------------------------------------------------------------------------
-    # add data column for remaining life expectancy
-    all_runs <- lexp_remain [all_runs,
-                             .(i.country, year, age, cases, cohort_size, country_name, disease, cfr.value, LE, value),
-                             on = .(country_code = country,
-                                    age_from    <= age,
-                                    age_to      >= age,
-                                    year         = year)
-    ]
-    
-    # rename column "i.country" to "country"
-    setnames (x = all_runs, old = "i.country", new = "country")
-    
-    # save a copy of remaining life expectancy values in disease column
-    all_runs [, disease := value]
-    all_runs [, value   := NULL]
-    # ----------------------------------------------------------------------------
-    
-    # ----------------------------------------------------------------------------
-    # MCV1 coverage
-    coverage_routine_MCV1 <- coverage_routine [vaccine == "MCV1"]
-    
-    # add MCV1 column
-    all_runs <- coverage_routine_MCV1 [all_runs, 
-                                       .(i.country, i.year, age, cases, cohort_size, country_name, disease, cfr.value, LE, coverage),
-                                       on = .(country_code = country,
-                                              year         = year)
-    ]
-    
-    # rename column "coverage" to "MCV1"
-    setnames (x = all_runs, 
-              old = c("i.country", "i.year", "coverage"), 
-              new = c("country",   "year",   "MCV1"))
-    # ----------------------------------------------------------------------------
-    
-    # calculate deaths and dalys
-    all_runs[, deaths := cases * cfr.value]
-    #all_runs[, dalys := (cases - deaths)*0.002 + deaths*(LE - 4)] # assumes all deaths are age 4, 
-    all_runs [, dalys := (cases - deaths) * 0.002 + deaths * (LE - age)] # to account for actual age of death
-    
-    # ------------------------------------------------------------------------------
-    # YLL calculation above is fine since most measles burden < 5 years
-    # remaining life expectancy estimation can be improved by using remaining life
-    # years by age, year and country
-    # ------------------------------------------------------------------------------
-    
-    # OUTPUT RUNS
-    
-    # don't need all of these columns for VIMC, save only ones that are needed
-    save.cols <- c(colnames(template))
-    
-    # ----------------------------------------------------------------------------
-    save.cols <- c(save.cols, "MCV1")
-    # ----------------------------------------------------------------------------
-    
-    output_runs <- subset(all_runs, year %in% report_years, select = save.cols)
-    
-    # write all output_runs to a file - need to specify the name (at the begining of the code), can be automated later
-    fwrite(output_runs[order(country, year, age)], 
-           paste0("outcome/",save.scenario, "/",foldername, "/", "burden_estimate_Measles-LSHTM-Jit-", scenario, ".csv"))
-    
-  # }
+  }
   
+  
+  # process results
+  
+  report_years <- sort(unique(template$year))
+  ages         <- sort(unique(template$age))
+  
+  # get years that the model was run for (can be different from reporting years)
+  years 		   <- sort(unique(as.numeric(coverage_routine[,year])))
+  
+  
+  # set cfrs before 2000 to 2000
+  cfr.year <- rbindlist(lapply(1980:1999, function(i) copy(cfr[Year ==2000,])[,Year := i]))
+  cfr <- rbind(cfr.year, cfr)
+  
+  # set Kosovo mortaity to Serbia as it was once Serbia
+  cfr.xk <- rbindlist(lapply("XK", function(i) copy(cfr[Code == "SRB",])[,Code := i]))
+  cfr.xk[, Country := "Kosovo"]
+  cfr <- rbind(cfr, cfr.xk)
+  
+  # expand cfr by age so that it uses the right value for <5 and 5-9 and 0 for >=10
+  cfr.year.all <- rbindlist(lapply(0:100, function(i) copy(cfr)[, age:=i]))
+  over10 <- T
+  
+  if (over10){
+    cfr.year.all[, cfr.value :=  if (age < 5) under5 else if (age > 4 & age <10) over5 else 0, 
+                 by = c("Code", "Year", "age") ] 
+  } else {
+    cfr.year.all[, cfr.value :=  if (age < 5) under5 else if (age > 4 ) over5, 
+                 by = c("Code", "Year", "age") ]
+  }
+  cfr.year.all$Year = as.integer(cfr.year.all$Year)
+  
+  
+  # ANALYSE RUNS 
+  
+  # get the names of all the files in all the subfolders the stochastic runs specified in scenarioname; separate cases and popsize files
+  # will use those to read them all in at once and put in a data.table
+  myfiles <- list.files(path = paste0("outcome/", save.scenario, "/",foldername,"/output/"), 
+                        recursive = T, pattern = "cases", full.names = T)
+  myfiles.popsize <- list.files(path = paste0("outcome/", save.scenario, "/",foldername,"/output"), 
+                                recursive = T, pattern = "popsize", full.names = T)
+  
+  # read in all those files specified in myfiles and put them in a single data table
+  all_cases  <- rbindlist(lapply(myfiles, function(fn, ...) {
+    res <- withCallingHandlers(
+      fread(fn, stringsAsFactors=F, check.names = F, fill = T, 
+            col.names = as.character(c(0:100))),
+      warning = function(w) { warning(w, fn); }
+    )
+    res[, country := gsub("^.+/(\\w+)_age.+$","\\1", fn) ]             # get the country code from the filename
+    res[, year := years]                                               # add year of simulation (from coverage data file)
+  })) 
+  
+  # switch back Kosovo to XK otherwise montagu returns error on upload
+  all_cases[country == "XKX", country := "XK"]
+  
+  all_popsize  <- rbindlist(lapply(myfiles.popsize, function(fn, ...) {
+    res <- fread(fn, stringsAsFactors=F, check.names = F, col.names = as.character(c(0:100)))
+    res[, country := gsub("^.+/(\\w+)_age.+$","\\1", fn) ]             # get the country code from the filename
+    res[, year := years]                                               # add year of model was run for (from coverage data file)
+  })) 
+  all_popsize[country == "XKX", country := "XK"]
+  
+  all_cases.m <- melt(all_cases, id.vars = c("year","country"), 
+                      measure.vars = c(as.character(0:100)), 
+                      variable.name = "age", value.name = "cases", variable.factor = F)
+  
+  all_popsize.m <- melt(all_popsize, id.vars = c("year", "country"),
+                        measure.vars = c(as.character(0:100)), 
+                        variable.name = "age", value.name = "cohort_size", variable.factor = F)
+  
+  # melt produces character variable when variable.factor is set to FALSE - change it to integer
+  all_cases.m[, age := lapply(.SD, as.integer), .SDcols = "age"]
+  all_popsize.m[, age := lapply(.SD, as.integer), .SDcols = "age"]
+  
+  # merge cases and cohort sizes
+  all_runs = merge(all_cases.m, all_popsize.m, by = c("year", "age", "country"), all.x = T)
+  
+  # add country_name, life expectancy and disease (Measles) to match template file
+  country_names <- unique(subset(template, select = c("country", "country_name")))
+  c_names <- country_names$country_name; names(c_names) = country_names$country
+  life.exp2 <- rbindlist(lapply(2100, function(i) copy(lexp[year == 2099])[, year:=i]))
+  life.exp <- rbind(lexp, life.exp2)
+  life.exp.all <- rbindlist(lapply(0:100, function(i) copy(life.exp)[, age:=i]))
+  colnames(life.exp)[8] <- "LE"
+  # all_runs[, c("country_name", "disease", "LE") := list(c_names[country], "Measles", life.exp[country])]
+  
+  all_runs[, c("country_name", "disease") := list(c_names[country],"Measles")]
+  
+  
+  # merge mortality rates from CFR file
+  all_runs <- merge(all_runs, subset(cfr.year.all, 
+                                     select = c( "Code", "Year", "age", "cfr.value")),
+                    by.x = c("country", "year", "age" ), by.y = c("Code", "Year", "age"), 
+                    sort= F, all.x = T)
+  
+  all_runs <- merge (all_runs, 
+                     subset (life.exp, select= c("country_code", "year", "LE")), 
+                     by.x = c("country", "year"), 
+                     by.y = c("country_code", "year"))
+  
+  # ----------------------------------------------------------------------------
+  # add data column for remaining life expectancy
+  all_runs <- lexp_remain [all_runs,
+                           .(i.country, year, age, cases, cohort_size, country_name, disease, cfr.value, LE, value),
+                           on = .(country_code = country,
+                                  age_from    <= age,
+                                  age_to      >= age,
+                                  year         = year)
+  ]
+  
+  # rename column "i.country" to "country"
+  setnames (x = all_runs, old = "i.country", new = "country")
+  
+  # save a copy of remaining life expectancy values in disease column
+  all_runs [, disease := value]
+  all_runs [, value   := NULL]
+  # ----------------------------------------------------------------------------
+  
+  # ----------------------------------------------------------------------------
+  # MCV1 coverage
+  coverage_routine_MCV1 <- coverage_routine [vaccine == "MCV1"]
+  
+  # add MCV1 column
+  all_runs <- coverage_routine_MCV1 [all_runs, 
+                                     .(i.country, i.year, age, cases, cohort_size, country_name, disease, cfr.value, LE, coverage),
+                                     on = .(country_code = country,
+                                            year         = year)
+  ]
+  
+  # rename column "coverage" to "MCV1"
+  setnames (x = all_runs, 
+            old = c("i.country", "i.year", "coverage"), 
+            new = c("country",   "year",   "MCV1"))
+  # ----------------------------------------------------------------------------
+  
+  # calculate deaths and dalys
+  all_runs[, deaths := cases * cfr.value]
+  #all_runs[, dalys := (cases - deaths)*0.002 + deaths*(LE - 4)] # assumes all deaths are age 4, 
+  all_runs [, dalys := (cases - deaths) * 0.002 + deaths * (LE - age)] # to account for actual age of death
+  
+  # ------------------------------------------------------------------------------
+  # YLL calculation above is fine since most measles burden < 5 years
+  # remaining life expectancy estimation can be improved by using remaining life
+  # years by age, year and country
+  # ------------------------------------------------------------------------------
+  
+  # OUTPUT RUNS
+  
+  # don't need all of these columns for VIMC, save only ones that are needed
+  save.cols <- c(colnames(template))
+  
+  # ----------------------------------------------------------------------------
+  save.cols <- c(save.cols, "MCV1")
+  # ----------------------------------------------------------------------------
+  
+  output_runs <- subset(all_runs, year %in% report_years, select = save.cols)
+  
+  # write all output_runs to a file - need to specify the name (at the begining of the code), can be automated later
+  # fwrite (output_runs[order(country, year, age)], 
+  #        paste0 ("outcome/", 
+  #                save.scenario, "/",
+  #                foldername, "/", 
+  #                "burden_estimate_Measles-LSHTM-Jit-", 
+  #                scenario_name, ".csv"))
+  
+  # burden estimate type -- central or stochastic
+  if (psa > 0) {
+    burden_estimate_type <- "stochastic_burden_estimate_"
+  } else {
+    burden_estimate_type <- "central_burden_estimate_"
+  }
+  
+  # burden estimate filename
+  burden_estimate_file <- paste0 (burden_estimate_folder, 
+                                  burden_estimate_type,
+                                  antigen, 
+                                  group_name, 
+                                  scenario_name, 
+                                  ".csv")
+  
+  # save burden estimates to file
+  fwrite (x    = output_runs [order(country, year, age)], 
+          file = burden_estimate_file)
+
   # clean environment
   writelog ("gavi_log", paste0 ("Main; gavi.r finished"))
   
   if (using_openmpi) {
     mpi.quit()
   }
+  
+  # return burden estimate filename
+  return (burden_estimate_file)
   
 } # end of function -- runScenario
 # ------------------------------------------------------------------------------
@@ -1865,74 +1917,88 @@ runScenario <- function (vaccine_coverage_folder    = "",
 print (Sys.time ())
 tic ()
 
+# set seed for random number generator
+set.seed (1) 
+
 # move to base directory (run code from source directory)
 source_wd <- getwd ()
 setwd ("../")
 
 # set values for global variables
-var <- list (seed = 1, 
-             psa  = 0, # runs for probabilistic sensitivity analysis
-                       # 0 for central run
+var <- list (psa  = 0, # runs for probabilistic sensitivity analysis
+             # 0 for central run
              
              # vaccine coverage
              vaccine_coverage_folder           = "vaccine_coverage/",
              coverage_prefix                   = "coverage", 
              touchstone                        = "_202005covid-4_",
+             antigen                           = "measles-",
              vaccine_coverage_subfolder        = "scenarios/",
              
              # disease burden
-             burden_template_folder            = "burden_template/",
+             burden_template                   = "burden_template/central-burden-template.202005covid-4.Measles_LSHTM-Jit_standard.csv",
              central_burden_estimate_folder    = "central_burden_estimate/",
              stochastic_burden_estimate_folder = "stochastic_burden_estimate/", 
              
+             # modelling group name
+             group_name                        = "LSHTM-Jit-",
+             
              # countries - specify iso3 codes to analyse only these countries
              #             or set it to "all" to analyse all included countries 
-             countries                         = c ("all"),
+             countries                         = c("ETH"),  # "all",
              
              # case fatality rate option -- "Wolfson" or "Portnoy", 
              cfr_option                        = "Wolfson"
-             )
+)
 
 # scenarios
-scenarios <- c ("measles-counterfactual-bau-scenario1-Portnoy", 
-                "measles-counterfactual-bau-scenario1-Wolfson", 
-                "measles-disruption-scenario2-sia2021-Portnoy", 
-                "measles-disruption-scenario2-sia2021-Wolfson", 
-                "measles-disruption-scenario3-sia2022-Portnoy", 
-                "measles-disruption-scenario3-sia2022-Wolfson", 
-                "measles-disruption-scenario4-25rout-Portnoy",
-                "measles-disruption-scenario4-25rout-Wolfson",
-                "measles-disruption-scenario5-25rout-sia2021-Portnoy",
-                "measles-disruption-scenario5-25rout-sia2021-Wolfson",
-                "measles-disruption-scenario6-25rout-sia2022-Portnoy",
-                "measles-disruption-scenario6-25rout-sia2022-Wolfson",
-                "measles-disruption-scenario7-50rout-Portnoy",
-                "measles-disruption-scenario7-50rout-Wolfson",
-                "measles-disruption-scenario8-50rout-sia2021-Portnoy",
-                "measles-disruption-scenario8-50rout-sia2021-Wolfson",
-                "measles-disruption-scenario9-50rout-sia2022-Portnoy",
-                "measles-disruption-scenario9-50rout-sia2022-Wolfson",
-                "measles-disruption-scenario10-25rout-25sia-Portnoy",
-                "measles-disruption-scenario10-25rout-25sia-Wolfson"
-                )
+scenarios <- c ("counterfactual-bau-scenario1-Portnoy", 
+                "counterfactual-bau-scenario1-Wolfson", 
+                "disruption-scenario2-sia2021-Portnoy", 
+                "disruption-scenario2-sia2021-Wolfson", 
+                "disruption-scenario3-sia2022-Portnoy", 
+                "disruption-scenario3-sia2022-Wolfson", 
+                "disruption-scenario4-25rout-Portnoy",
+                "disruption-scenario4-25rout-Wolfson",
+                "disruption-scenario5-25rout-sia2021-Portnoy",
+                "disruption-scenario5-25rout-sia2021-Wolfson",
+                "disruption-scenario6-25rout-sia2022-Portnoy",
+                "disruption-scenario6-25rout-sia2022-Wolfson",
+                "disruption-scenario7-50rout-Portnoy",
+                "disruption-scenario7-50rout-Wolfson",
+                "disruption-scenario8-50rout-sia2021-Portnoy",
+                "disruption-scenario8-50rout-sia2021-Wolfson",
+                "disruption-scenario9-50rout-sia2022-Portnoy",
+                "disruption-scenario9-50rout-sia2022-Wolfson",
+                "disruption-scenario10-25rout-25sia-Portnoy",
+                "disruption-scenario10-25rout-25sia-Wolfson"
+)
 
 # debug
-scenarios <- c ("measles-counterfactual-bau-scenario1-Wolfson")
-
-# set seed for random number generator
-set.seed (var$seed)  
+scenarios <- c ("counterfactual-bau-scenario1-Wolfson")
 
 # create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full ()
 
 # loop through scenarios
-for (scenario in scenarios) {
+for (index in 1:length(scenarios)) {
+#  for (index in seq (1, 20, by = 2)) {   # debug
+
+  
+  
+  # set scenario name 
+  scenario_name   <- scenarios [index]
+  
+  # set scenario number in order to save it in the right folder
+  #   scenarioXX, XX = 01, 02, ... ,10, 11, 12, ...
+  #   this is set to 10 characters in the fortran model code
+  scenario_number <- sprintf ("scenario%02d", index)
   
   # set case fatality rate option -- "Wolfson" or "Portnoy"
-  if (grepl (pattern = "Wolfson", x = scenario, fixed = T)) {
+  if (grepl (pattern = "Wolfson", x = scenario_name, fixed = T)) {
     var$cfr_option <- "Wolfson"
     
-  } else if (grepl (pattern = "Portnoy", x = scenario, fixed = T)) {
+  } else if (grepl (pattern = "Portnoy", x = scenario_name, fixed = T)) {
     var$cfr_option <- "Portnoy"
   }
   
@@ -1943,23 +2009,43 @@ for (scenario in scenarios) {
     vaccine_coverage_folder    = var$vaccine_coverage_folder, 
     coverage_prefix            = var$coverage_prefix,
     touchstone                 = var$touchstone,
-    scenario                   = scenario,
+    antigen                    = var$antigen,
+    scenario_name              = scenario_name,
     vaccine_coverage_subfolder = var$vaccine_coverage_subfolder
-    )
+  )
   
-  # run scenario
-  runScenario (vaccine_coverage_folder    = var$vaccine_coverage_folder, 
-               coverage_prefix            = var$coverage_prefix,
-               touchstone                 = var$touchstone,
-               scenario                   = scenario,
-               vaccine_coverage_subfolder = var$vaccine_coverage_subfolder,
-               burden_template            = "burden_template/central-burden-template.202005covid-4.Measles_LSHTM-Jit_standard.csv",
-               vaccination                = 2, 
-               using_sia                  = 1,
-               countries                  = c("ETH"), 
-               cluster_cores              = 2,
-               psa                        = 0
-               )
+  # run scenario -- get burden estimates -- primarily cases
+  # return burden estimate file name where estimates are saved
+  burden_estimate_file <- runScenario (
+    vaccine_coverage_folder    = var$vaccine_coverage_folder,
+    coverage_prefix            = var$coverage_prefix,
+    touchstone                 = var$touchstone,
+    antigen                    = var$antigen,
+    scenario_name              = scenario_name,
+    scenario_number            = scenario_number,
+    vaccine_coverage_subfolder = var$vaccine_coverage_subfolder,
+    burden_template            = var$burden_template,
+    burden_estimate_folder     = var$central_burden_estimate_folder,
+    group_name                 = var$group_name,
+    vaccination                = 2,
+    using_sia                  = 1,
+    countries                  = var$countries,
+    cluster_cores              = 2,
+    psa                        = 0
+  )
+  
+  # START HERE TOMORROW
+  # apply CFR (case fatality rates) to estimate deaths and DALYs -- Wolfson
+  #   save results in corresponding cfr_option subfolder
+  #   append cfr_option to results file
+  # apply_cfr (cfr_option             = "Wolfson", 
+  #            input_file             = burden_estimate_file, # includes folder name
+  #            burden_estimate_folder = var$central_burden_estimate_folder)
+  # 
+  # # apply CFR (case fatality rates) to estimate deaths and DALYs -- Portnoy
+  # apply_cfr (cfr_option             = "Portnoy", 
+  #            input_file             = burden_estimate_file, # includes folder name
+  #            burden_estimate_folder = var$central_burden_estimate_folder)
   
 } # end of loop -- for (scenario in scenarios) 
 
