@@ -943,7 +943,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
                          # Whether supplementary immunization campaigns are used. 0: no SIA; 1: with SIA
                          using_sia,
                          
-                         countries                  = "all", 
+                         country_set                = "all", 
                          cluster_cores              = 1,
                          
                          psa  # runs for probabilistic sensitivity analysis
@@ -1372,8 +1372,10 @@ runScenario <- function (vaccine_coverage_folder    = "",
   # process data
   
   # if countries are specified to all, then set countries to all countries in coverage file
-  if (countries == "all") {
-    countries	<- as.character(unique(coverage_routine[, country_code]))  
+  if (country_set == "all") {
+    countries	<- as.character (unique (coverage_routine [, country_code] ) )  
+  } else {
+    countries <- country_set
   }
   
   # countries	<- as.character(unique(coverage_routine[,country_code]))[1]  # debug #
@@ -2059,7 +2061,7 @@ var <- list (psa  = 0, # runs for probabilistic sensitivity analysis
              
              # countries - specify iso3 codes to analyse only these countries
              #             or set it to "all" to analyse all included countries 
-             countries                         = c("all")
+             countries                         = c("BGD")
              )
 
 # scenarios
@@ -2124,7 +2126,7 @@ for (index in 1:length(scenarios)) {
     group_name                 = var$group_name,
     vaccination                = 2,
     using_sia                  = 1,
-    countries                  = var$countries,
+    country_set                = var$countries,
     cluster_cores              = 2,
     psa                        = 0
   )
