@@ -606,7 +606,10 @@ runCountry <- function (
         # Then we calculate the number of individuals that should be vaccinated each week, in order to remain 1 - coverage susceptibles at the end of the timeliness data
         # In essence, this becomes the inverse of the cumulative timeliness curve
         cycov <- coverage_routine [country_code == iso3 & year == y & vaccine == "MCV1", coverage]/timeliness[country_code == iso3 & is.na(age), prop_final_cov]
-        if(is.na(cycov)){
+        
+        if (length(cycov) == 0) {   # check if vaccine is not yet introduced and thereby, coverage value missing for this year
+          cycov <- 0
+        } else if (is.na(cycov)) {
           cycov <- 0
         }
         
@@ -932,24 +935,15 @@ runScenario <- function (vaccine_coverage_folder    = "",
                          scenario_name,
                          scenario_number,
                          vaccine_coverage_subfolder = "",
-                         
-                         burden_template,         # burden template file
-                         burden_estimate_folder,  # burden estimate folder  
-                         group_name,              # modelling group name
-                         
-                         # Whether children are vaccinated. 0: No vaccination; 1: Only MCV1; 2: MCV1 and MCV2
-                         vaccination, 
-                         
-                         # Whether supplementary immunization campaigns are used. 0: no SIA; 1: with SIA
-                         using_sia,
-                         
-                         country_set                = "all", 
+                         burden_template,                 # burden template file
+                         burden_estimate_folder,          # burden estimate folder  
+                         group_name,                      # modelling group name
+                         countries                  = "all", 
                          cluster_cores              = 1,
-                         
-                         psa  # runs for probabilistic sensitivity analysis
-                              # 0 for single run
-                         
-) {
+                         psa                        = 0,  # psa runs; 0 for single run
+                         vaccination,  # Whether children are vaccinated. 0: No vaccination; 1: Only MCV1; 2: MCV1 and MCV2
+                         using_sia     # Whether supplementary immunization campaigns are used. 0: no SIA; 1: with SIA
+                         ) {
   
   # Changelog:	This file has been heavily changed compared to old file by Ed Jones:
   # 				1.	There is only one file in which different settings can be changed to run different scenario's, rather than 8 different folders for different scenarios;
@@ -1372,10 +1366,8 @@ runScenario <- function (vaccine_coverage_folder    = "",
   # process data
   
   # if countries are specified to all, then set countries to all countries in coverage file
-  if (country_set == "all") {
+  if (countries == "all") {
     countries	<- as.character (unique (coverage_routine [, country_code] ) )  
-  } else {
-    countries <- country_set
   }
   
   # countries	<- as.character(unique(coverage_routine[,country_code]))[1]  # debug #
@@ -2041,28 +2033,29 @@ source_wd <- getwd ()
 setwd ("../")
 
 # set values for global variables
-var <- list (psa  = 0, # runs for probabilistic sensitivity analysis
-             # 0 for central run
-             
-             # vaccine coverage
-             vaccine_coverage_folder           = "vaccine_coverage/",
-             coverage_prefix                   = "coverage", 
-             touchstone                        = "_202005covid-4_",
-             antigen                           = "measles-",
-             vaccine_coverage_subfolder        = "scenarios/",
-             
-             # disease burden
-             burden_template                   = "burden_template/central-burden-template.202005covid-4.Measles_LSHTM-Jit_standard.csv",
-             central_burden_estimate_folder    = "central_burden_estimate/",
-             stochastic_burden_estimate_folder = "stochastic_burden_estimate/", 
-             
-             # modelling group name
-             group_name                        = "LSHTM-Jit-",
-             
-             # countries - specify iso3 codes to analyse only these countries
-             #             or set it to "all" to analyse all included countries 
-             countries                         = c("BGD")
-             )
+var <- list (
+  # vaccine coverage
+  vaccine_coverage_folder           = "vaccine_coverage/",
+  coverage_prefix                   = "coverage", 
+  touchstone                        = "_202005covid-4_",
+  antigen                           = "measles-",
+  vaccine_coverage_subfolder        = "scenarios/",
+  
+  # disease burden
+  burden_template                   = "burden_template/central-burden-template.202005covid-4.Measles_LSHTM-Jit_standard.csv",
+  central_burden_estimate_folder    = "central_burden_estimate/",
+  stochastic_burden_estimate_folder = "stochastic_burden_estimate/", 
+  
+  # modelling group name
+  group_name                        = "LSHTM-Jit-",
+  
+  # countries - specify iso3 codes to analyse only these countries
+  #             or set it to "all" to analyse all included countries 
+  countries                         = c("all"), 
+  
+  cluster_cores                     = 2,  # number of cores
+  psa                               = 0   # psa runs; 0 for single run
+  )
 
 # scenarios
 scenarios <- c("counterfactual-bau-scenario1", 
@@ -2076,9 +2069,6 @@ scenarios <- c("counterfactual-bau-scenario1",
                "disruption-scenario9-50rout-sia2022",
                "disruption-scenario10-25rout-25sia"
                )
-
-# debug
-scenarios <- c ("counterfactual-bau-scenario1")
 
 # create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full ()
@@ -2105,7 +2095,7 @@ for (index in 1:length(scenarios)) {
     antigen                    = var$antigen,
     scenario_name              = scenario_name,
     vaccine_coverage_subfolder = var$vaccine_coverage_subfolder
-  )
+    )
   # ----------------------------------------------------------------------------
   
   # ----------------------------------------------------------------------------
@@ -2124,12 +2114,12 @@ for (index in 1:length(scenarios)) {
     burden_template            = var$burden_template,
     burden_estimate_folder     = var$central_burden_estimate_folder,
     group_name                 = var$group_name,
+    countries                  = var$countries,
+    cluster_cores              = var$cluster_cores,
+    psa                        = var$psa,
     vaccination                = 2,
-    using_sia                  = 1,
-    country_set                = var$countries,
-    cluster_cores              = 2,
-    psa                        = 0
-  )
+    using_sia                  = 1 
+    )
   # ----------------------------------------------------------------------------
   
   # ----------------------------------------------------------------------------
