@@ -8,6 +8,7 @@
 # load libraries
 library (tictoc)
 library (data.table)
+library (stringr)
 library (doParallel)
 library (foreach)
 
@@ -946,7 +947,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
                          cluster_cores              = 1,
                          
                          psa  # runs for probabilistic sensitivity analysis
-                         # 0 for single run
+                              # 0 for single run
                          
 ) {
   
@@ -1767,8 +1768,14 @@ runScenario <- function (vaccine_coverage_folder    = "",
   setnames (x = all_runs, old = "i.country", new = "country")
   
   # save a copy of remaining life expectancy values in disease column
-  all_runs [, disease := value]
-  all_runs [, value   := NULL]
+  # rename country column
+  setnames (all_runs, 
+            old = c ("value"),  
+            new = c ("remain_lexp") 
+            )
+  
+  # all_runs [, disease := value]
+  # all_runs [, value   := NULL]
   # ----------------------------------------------------------------------------
   
   # ----------------------------------------------------------------------------
@@ -1777,7 +1784,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
   
   # add MCV1 column
   all_runs <- coverage_routine_MCV1 [all_runs, 
-                                     .(i.country, i.year, age, cases, cohort_size, country_name, disease, cfr.value, LE, coverage),
+                                     .(i.country, i.year, age, cases, cohort_size, country_name, disease, cfr.value, LE, coverage, remain_lexp),
                                      on = .(country_code = country,
                                             year         = year)
   ]
@@ -1805,7 +1812,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
   save.cols <- c(colnames(template))
   
   # ----------------------------------------------------------------------------
-  save.cols <- c(save.cols, "MCV1")
+  save.cols <- c(save.cols, "MCV1", "remain_lexp")
   # ----------------------------------------------------------------------------
   
   output_runs <- subset(all_runs, year %in% report_years, select = save.cols)
@@ -1826,8 +1833,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
   }
   
   # burden estimate filename
-  burden_estimate_file <- paste0 (burden_estimate_folder, 
-                                  burden_estimate_type,
+  burden_estimate_file <- paste0 (burden_estimate_type,
                                   antigen, 
                                   group_name, 
                                   scenario_name, 
@@ -1835,7 +1841,8 @@ runScenario <- function (vaccine_coverage_folder    = "",
   
   # save burden estimates to file
   fwrite (x    = output_runs [order(country, year, age)], 
-          file = burden_estimate_file)
+          file = paste0 (burden_estimate_folder, 
+                         burden_estimate_file) )
 
   # clean environment
   writelog ("gavi_log", paste0 ("Main; gavi.r finished"))
@@ -1844,10 +1851,117 @@ runScenario <- function (vaccine_coverage_folder    = "",
     mpi.quit()
   }
   
-  # return burden estimate filename
+  # return burden estimate filename (cases)
   return (burden_estimate_file)
   
 } # end of function -- runScenario
+# ------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+# Function: estimateDeathsDalys 
+#
+# Estimate deaths by applying CFR (case fatality rates) to estimated cases and
+# also calculate DALYs
+# ------------------------------------------------------------------------------
+# 
+#   save results in corresponding cfr_option subfolder
+#   append cfr_option to burden estimates file
+# ------------------------------------------------------------------------------
+estimateDeathsDalys <- function (cfr_option,
+                                 burden_estimate_file, 
+                                 burden_estimate_folder) {
+  
+  # read burden estimates (primarily cases)
+  burden <- fread (file = paste0 (burden_estimate_folder, 
+                                  burden_estimate_file) )
+  
+  # ----------------------------------------------------------------------------
+  # use CFRs -- Wolfson
+  if (cfr_option == "Wolfson") {
+
+    # read CFRs (in percentage) -- Wolfson
+    # cfr estimates for ages below 5 years
+    # cfrs for ages above 5 years are half the cfr values for ages below 5 years
+    cfr	<- fread ("input/cfr.csv")
+    
+    # change CFR percentages to rates between 0 and 1
+    cfr [, CFR := CFR/100]
+    
+    # add CFR data column to burden estimates
+    burden <- cfr [burden, 
+                   .(disease, year, age, i.country, country_name, cohort_size, cases, dalys, deaths, CFR, remain_lexp), 
+                   on = .(country_code = country)
+                   ]
+    
+    # estimate deaths
+    # cfrs for ages above 5 years are half the cfr values for ages below 5 years
+    burden [age <  5, deaths := cases * CFR  ]
+    burden [age >= 5, deaths := cases * CFR/2]
+    
+    # rename country column
+    setnames (burden, 
+              old = c ("i.country"),  
+              new = c ("country") 
+              )
+    
+    # drop CFR column
+    burden [, CFR  := NULL]
+  }
+  # ----------------------------------------------------------------------------
+  
+  # ----------------------------------------------------------------------------
+  # use CFRs -- Portnoy
+  if (cfr_option == "Portnoy") {
+    
+    # read CFRs (rates between 0 and 1) -- Portnoy
+    cfr	<- fread ("input/cfrs_new_noage.csv")
+    
+    # add CFR data column to burden estimates
+    burden <- cfr [burden, 
+                   .(disease, year, age, country, country_name, cohort_size, cases, dalys, deaths, over5, under5, remain_lexp), 
+                   on = .(Code = country, 
+                          Year = year)
+                   ]
+    
+    # estimate deaths for ages under 5 years
+    burden [age < 5, deaths := cases * under5]
+    
+    # estimate deaths for ages over 5 years
+    burden [age >= 5, deaths := cases * over5]
+    
+    # drop cfr columns -- under5 and over5
+    burden [, ':=' (under5 = NULL, 
+                    over5  = NULL)]
+  }
+  # ----------------------------------------------------------------------------
+  
+  # ----------------------------------------------------------------------------
+  # DALYs
+  # calculate dalys = (ylds) + (ylls)
+  burden [, dalys := ((cases - deaths) * 0.002) + (deaths * remain_lexp)]
+  
+  # drop column -- remaining life expectancy
+  burden [, remain_lexp  := NULL]
+  # ----------------------------------------------------------------------------
+  
+  # append/suffix cfr_option to the end of filename
+  updated_burden_estimate_file <- str_replace (string      = burden_estimate_file, 
+                                               pattern     = ".csv", 
+                                               replacement = paste0 ("_", cfr_option, ".csv")  
+                                               )
+  
+  # save updated burden estimate file (cases + deaths) to file
+  # cfr_option is also the name of the subfolder
+  fwrite (x    = burden, 
+          file = paste0 (burden_estimate_folder,
+                         cfr_option, "/", 
+                         updated_burden_estimate_file)
+          )
+  
+  return ()
+  
+} # end of function -- estimateDeathsDalys
 # ------------------------------------------------------------------------------
 
 
@@ -1945,47 +2059,31 @@ var <- list (psa  = 0, # runs for probabilistic sensitivity analysis
              
              # countries - specify iso3 codes to analyse only these countries
              #             or set it to "all" to analyse all included countries 
-             countries                         = c("ETH"),  # "all",
-             
-             # case fatality rate option -- "Wolfson" or "Portnoy", 
-             cfr_option                        = "Wolfson"
-)
+             countries                         = c("all")
+             )
 
 # scenarios
-scenarios <- c ("counterfactual-bau-scenario1-Portnoy", 
-                "counterfactual-bau-scenario1-Wolfson", 
-                "disruption-scenario2-sia2021-Portnoy", 
-                "disruption-scenario2-sia2021-Wolfson", 
-                "disruption-scenario3-sia2022-Portnoy", 
-                "disruption-scenario3-sia2022-Wolfson", 
-                "disruption-scenario4-25rout-Portnoy",
-                "disruption-scenario4-25rout-Wolfson",
-                "disruption-scenario5-25rout-sia2021-Portnoy",
-                "disruption-scenario5-25rout-sia2021-Wolfson",
-                "disruption-scenario6-25rout-sia2022-Portnoy",
-                "disruption-scenario6-25rout-sia2022-Wolfson",
-                "disruption-scenario7-50rout-Portnoy",
-                "disruption-scenario7-50rout-Wolfson",
-                "disruption-scenario8-50rout-sia2021-Portnoy",
-                "disruption-scenario8-50rout-sia2021-Wolfson",
-                "disruption-scenario9-50rout-sia2022-Portnoy",
-                "disruption-scenario9-50rout-sia2022-Wolfson",
-                "disruption-scenario10-25rout-25sia-Portnoy",
-                "disruption-scenario10-25rout-25sia-Wolfson"
-)
+scenarios <- c("counterfactual-bau-scenario1", 
+               "disruption-scenario2-sia2021", 
+               "disruption-scenario3-sia2022", 
+               "disruption-scenario4-25rout",
+               "disruption-scenario5-25rout-sia2021",
+               "disruption-scenario6-25rout-sia2022",
+               "disruption-scenario7-50rout",
+               "disruption-scenario8-50rout-sia2021",
+               "disruption-scenario9-50rout-sia2022",
+               "disruption-scenario10-25rout-25sia"
+               )
 
 # debug
-scenarios <- c ("counterfactual-bau-scenario1-Wolfson")
+scenarios <- c ("counterfactual-bau-scenario1")
 
 # create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full ()
 
 # loop through scenarios
 for (index in 1:length(scenarios)) {
-#  for (index in seq (1, 20, by = 2)) {   # debug
 
-  
-  
   # set scenario name 
   scenario_name   <- scenarios [index]
   
@@ -1994,14 +2092,7 @@ for (index in 1:length(scenarios)) {
   #   this is set to 10 characters in the fortran model code
   scenario_number <- sprintf ("scenario%02d", index)
   
-  # set case fatality rate option -- "Wolfson" or "Portnoy"
-  if (grepl (pattern = "Wolfson", x = scenario_name, fixed = T)) {
-    var$cfr_option <- "Wolfson"
-    
-  } else if (grepl (pattern = "Portnoy", x = scenario_name, fixed = T)) {
-    var$cfr_option <- "Portnoy"
-  }
-  
+  # ----------------------------------------------------------------------------
   # generate 2 vaccine coverage files per scenario for routine and SIA from 
   # VIMC vaccine coverage file: 
   #   paste0 (vaccine_coverage_folder, prefix, touchstone, scenario, ".csv")
@@ -2013,7 +2104,11 @@ for (index in 1:length(scenarios)) {
     scenario_name              = scenario_name,
     vaccine_coverage_subfolder = var$vaccine_coverage_subfolder
   )
+  # ----------------------------------------------------------------------------
   
+  # ----------------------------------------------------------------------------
+  # estimate cases
+  #
   # run scenario -- get burden estimates -- primarily cases
   # return burden estimate file name where estimates are saved
   burden_estimate_file <- runScenario (
@@ -2033,21 +2128,27 @@ for (index in 1:length(scenarios)) {
     cluster_cores              = 2,
     psa                        = 0
   )
+  # ----------------------------------------------------------------------------
   
-  # START HERE TOMORROW
-  # apply CFR (case fatality rates) to estimate deaths and DALYs -- Wolfson
+  # ----------------------------------------------------------------------------
+  # estimate deaths and DALYs
+  #
+  # apply CFR (case fatality rates) to estimate deaths -- Wolfson
   #   save results in corresponding cfr_option subfolder
   #   append cfr_option to results file
-  # apply_cfr (cfr_option             = "Wolfson", 
-  #            input_file             = burden_estimate_file, # includes folder name
-  #            burden_estimate_folder = var$central_burden_estimate_folder)
-  # 
-  # # apply CFR (case fatality rates) to estimate deaths and DALYs -- Portnoy
-  # apply_cfr (cfr_option             = "Portnoy", 
-  #            input_file             = burden_estimate_file, # includes folder name
-  #            burden_estimate_folder = var$central_burden_estimate_folder)
-  
-} # end of loop -- for (scenario in scenarios) 
+  estimateDeathsDalys (cfr_option             = "Wolfson",
+                       burden_estimate_file   = burden_estimate_file,
+                       burden_estimate_folder = var$central_burden_estimate_folder)
+
+  # apply CFR (case fatality rates) to estimate deaths -- Portnoy
+  #   save results in corresponding cfr_option subfolder
+  #   append cfr_option to results file
+  estimateDeathsDalys (cfr_option             = "Portnoy",
+                       burden_estimate_file   = burden_estimate_file,
+                       burden_estimate_folder = var$central_burden_estimate_folder)
+  # ----------------------------------------------------------------------------
+
+} # end of loop -- for (scenario in scenarios)
 
 
 # return to source directory
