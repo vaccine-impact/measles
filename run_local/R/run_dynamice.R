@@ -11,6 +11,8 @@
 library (tictoc)
 library (data.table)
 library (stringr)
+library (ggplot2)
+library (scales)
 library (doParallel)
 library (foreach)
 
@@ -52,12 +54,15 @@ var <- list (
   central_burden_estimate_folder    = "central_burden_estimate/",
   stochastic_burden_estimate_folder = "stochastic_burden_estimate/", 
   
+  # diagnostic plots folder
+  plot_folder                       = "plots/",
+  
   # modelling group name
   group_name                        = "LSHTM-Jit-",
   
   # countries - specify iso3 codes to analyse only these countries
   #             or set it to "all" to analyse all included countries 
-  countries                         = c("ETH"),  # debug -- c("all"), 
+  countries                         = c("all"),  # debug -- c("ETH"), 
   
   cluster_cores                     = 2,  # number of cores
   psa                               = 0   # psa runs; 0 for single run
@@ -77,7 +82,7 @@ scenarios <- c("counterfactual-bau-scenario1",
                )
 
 # debug
-# scenarios <- c("counterfactual-bau-scenario1")
+# scenarios <- scenarios [1]
 
 # create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full ()
@@ -150,6 +155,25 @@ for (index in 1:length(scenarios)) {
   # ----------------------------------------------------------------------------
 
 } # end of loop -- for (scenario in scenarios)
+
+# ------------------------------------------------------------------------------
+# diagnostic plots of vaccine coverage and burden estimates (cases, deaths, dalys)
+diagnostic_plots (
+  vaccine_coverage_folder    = var$vaccine_coverage_folder,
+  coverage_prefix            = var$coverage_prefix,
+  touchstone                 = var$touchstone,
+  antigen                    = var$antigen,
+  scenarios                  = scenarios,
+  burden_estimate_folder     = var$central_burden_estimate_folder,
+  plot_folder                = var$plot_folder,
+  group_name                 = var$group_name,
+  countries                  = var$countries,
+  cfr_options                = c("Wolfson", "Portnoy"),
+  psa                        = var$psa,
+  start_year                 = 2015,
+  end_year                   = 2030
+)
+# ------------------------------------------------------------------------------
 
 
 # return to source directory
