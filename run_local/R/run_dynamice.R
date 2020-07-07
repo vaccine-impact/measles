@@ -15,6 +15,8 @@ library (ggplot2)
 library (scales)
 library (doParallel)
 library (foreach)
+library (countrycode)
+library (ggpubr)
 
 # remove all objects from workspace
 rm (list = ls ())
