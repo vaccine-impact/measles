@@ -63,8 +63,9 @@ var <- list (
   group_name                        = "LSHTM-Jit-",
   
   # countries - specify iso3 codes to analyse only these countries
-  #             or set it to "all" to analyse all included countries 
-  countries                         = c("all"),  # debug -- c("ETH"), 
+  #             or set it to "all" to analyse all included countries
+  countries                         = c ("all"),
+  # countries                         = c("ETH"),  # debug -- c("BGD", "ETH") / "all"
   
   cluster_cores                     = 2,  # number of cores
   psa                               = 0   # psa runs; 0 for single run
@@ -80,11 +81,12 @@ scenarios <- c("counterfactual-bau-scenario1",
                "disruption-scenario7-50rout",
                "disruption-scenario8-50rout-sia2021",
                "disruption-scenario9-50rout-sia2022",
-               "disruption-scenario10-25rout-25sia"
+               "disruption-scenario10-25rout-25sia",
+               "disruption-scenario11-0sia"
                )
 
 # debug
-# scenarios <- scenarios [1]
+# scenarios <- c("counterfactual-bau-scenario1")
 
 # create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full ()
@@ -153,10 +155,17 @@ for (index in 1:length(scenarios)) {
   #   append cfr_option to results file
   estimateDeathsDalys (cfr_option             = "Portnoy",
                        burden_estimate_file   = burden_estimate_file,
-                       burden_estimate_folder = var$central_burden_estimate_folder)
+                       burden_estimate_folder = var$central_burden_estimate_folder,
+                       vimc_scenario          = "campaign-default",  # MCV1&2 and SIAs
+                       portnoy_scenario       = "s6"  # portnoy scenario 6
+                       )
   # ----------------------------------------------------------------------------
 
 } # end of loop -- for (scenario in scenarios)
+
+
+# base scenario for comparison
+base_scenario <- "counterfactual-bau-scenario1"
 
 # ------------------------------------------------------------------------------
 # diagnostic plots of vaccine coverage and burden estimates (cases, deaths, dalys)
@@ -166,6 +175,7 @@ diagnostic_plots (
   touchstone                 = var$touchstone,
   antigen                    = var$antigen,
   scenarios                  = scenarios,
+  base_scenario              = base_scenario,
   burden_estimate_folder     = var$central_burden_estimate_folder,
   plot_folder                = var$plot_folder,
   group_name                 = var$group_name,

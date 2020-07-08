@@ -335,6 +335,12 @@ cfr_estimates_diagnostic_plots <- function (cfr_estimates_file,
     
   }
   
+  # rename columns -- (country to country_code) and (region to GBD_region)
+  setnames (x = cfr_scenarios, 
+            old = c ("country",      "region"), 
+            new = c ("country_code", "GBD_region") 
+            )
+  
   # save single CFR file with cfr estimates for various VIMC scenarios 
   # and Portnoy scenarios 4 and 6
   fwrite (x    = cfr_scenarios, 

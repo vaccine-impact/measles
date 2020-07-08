@@ -1013,8 +1013,12 @@ runScenario <- function (vaccine_coverage_folder    = "",
   
   debug_country		  <- "*"			#ISO3 codes of country to debug, * to debug all countries
   debug_spinup		  <- FALSE		#TRUE/FALSE: If true, generate data for spin-up period of model
-  debug_model			  <- FALSE		#TRUE/FALSE: If true: generate data for period after spin-up
-  debug_compartments<- 0			  #TRUE/FALSE: If true: output size of each compartment. If false: output number of cases. If 2: debug vaccinated
+  
+  debug_model       <- TRUE
+  # debug_model			  <- FALSE		#TRUE/FALSE: If true: generate data for period after spin-up
+  
+  debug_compartments<- 1
+  # debug_compartments<- 0			  #TRUE/FALSE: If true: output size of each compartment. If false: output number of cases. If 2: debug vaccinated
   debug_age         <- 0        #0-2. If 0: output all in annual age-strata. If 1: output age 0-2 in weekly age-strata, 3-100 in annual age-strata. If 2: sum all age-strata.
   debug_timepoints	<- 0			  #0-2. If 0: output per year. If 1: output per timepoint and report first 25% of timepoints. If 2: output per timepoint and report all timepoints.
   debug_relative		<- FALSE		#If true: output proportion of new cases. If false, output absolute number of new cases.
@@ -1641,6 +1645,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
   save.cols <- c(save.cols, "MCV1", "remain_lexp")
   # ----------------------------------------------------------------------------
   
+  # keep all columns
   output_runs <- subset(all_runs, year %in% report_years, select = save.cols)
   
   # burden estimate type -- central or stochastic
@@ -1688,7 +1693,9 @@ runScenario <- function (vaccine_coverage_folder    = "",
 # ------------------------------------------------------------------------------
 estimateDeathsDalys <- function (cfr_option,
                                  burden_estimate_file, 
-                                 burden_estimate_folder) {
+                                 burden_estimate_folder, 
+                                 vimc_scenario, 
+                                 portnoy_scenario) {
   
   # read burden estimates (primarily cases)
   burden <- fread (file = paste0 (burden_estimate_folder, 
@@ -1730,17 +1737,56 @@ estimateDeathsDalys <- function (cfr_option,
   
   # ----------------------------------------------------------------------------
   # use CFRs -- Portnoy
+  
   if (cfr_option == "Portnoy") {
     
     # read CFRs (rates between 0 and 1) -- Portnoy
-    cfr	<- fread ("input/cfrs_new_noage.csv")
+    cfr	<- fread ("input/cfr_scenarios.csv")
+    # cfr	<- fread ("input/cfrs_new_noage.csv")
+    
+    # --------------------------------------------------------------------------
+    # cfr estimates are for 2000 to 2030
+    # if cfr estimates are required for years below or above this range, then 
+    # for years below 2000, set cfr estimates of year 2000
+    # for years above 2030, set cfr estimates of year 2030
+    
+    # find mimimum and maximum year
+    min_year = min (burden [, year])
+    max_year = max (burden [, year])
+    
+    # set cfrs for years before 2000 to cfr values of year 2000
+    if (min_year < 2000) {
+      cfr.year <- rbindlist (lapply (min_year:1999, function(i) copy (cfr [year == 2000, ])[, year := i]))
+      cfr      <- rbind     (cfr.year, cfr, use.names = TRUE)
+    }
+    
+    # set cfrs after 2030 to 2030
+    if (max_year > 2030) {
+      cfr.year <- rbindlist (lapply (2031:max_year, function(i) copy (cfr [year == 2030, ])[, year := i]))
+      cfr      <- rbind     (cfr, cfr.year, use.names = TRUE)
+    }
+    # --------------------------------------------------------------------------
+    
+    # rename columns -- cfr of vimc_scenario and portnoy_scenario
+    # cfrs for under 5 (< 5) and over 5 (>= 5) years
+    setnames (x = cfr, 
+              old = c (paste0 ("cfr_under5_", vimc_scenario, "_", portnoy_scenario),      
+                       paste0 ("cfr_over5_" , vimc_scenario, "_", portnoy_scenario) ), 
+              new = c ("under5", 
+                       "over5" ) 
+              )
     
     # add CFR data column to burden estimates
     burden <- cfr [burden, 
                    .(disease, year, age, country, country_name, cohort_size, cases, dalys, deaths, over5, under5, remain_lexp), 
-                   on = .(Code = country, 
-                          Year = year)
+                   on = .(country_code = country, 
+                          year         = year)
                    ]
+    # burden <- cfr [burden, 
+    #                .(disease, year, age, country, country_name, cohort_size, cases, dalys, deaths, over5, under5, remain_lexp), 
+    #                on = .(Code = country, 
+    #                       Year = year)
+    # ]
     
     # estimate deaths for ages under 5 years
     burden [age < 5, deaths := cases * under5]
@@ -1793,6 +1839,7 @@ diagnostic_plots <- function (vaccine_coverage_folder,
                               touchstone,
                               antigen,
                               scenarios,
+                              base_scenario,
                               burden_estimate_folder,
                               plot_folder,
                               group_name,
@@ -1900,7 +1947,7 @@ diagnostic_plots <- function (vaccine_coverage_folder,
                                       y = coverage * 100, 
                                       color = factor (vaccine))) +  
           scale_x_continuous (breaks = pretty_breaks ()) + 
-          geom_line () + 
+          geom_point () + 
           labs (title = countrycode (sourcevar   = country_iso3_code, 
                                      origin      = "iso3c", 
                                      destination = "country.name"),
@@ -1952,6 +1999,8 @@ diagnostic_plots <- function (vaccine_coverage_folder,
       
     } # end of loop -- for (scenario_name in scenarios)
     
+    
+    # --------------------------------------------------------------------------
     # add comparative plot across all scenarios for each country
     for (country_iso3_code in country_iso3_codes) {
       
@@ -1981,9 +2030,176 @@ diagnostic_plots <- function (vaccine_coverage_folder,
         
         print (p)
       }
+    } # end of loop -- for (country_iso3_code in country_iso3_codes)
+    # --------------------------------------------------------------------------
+    
+    
+    # --------------------------------------------------------------------------
+    # add comparative plot across all scenarios for each country 
+    # in comparison to a base scenario, (i.e.) proportional increase or decrease
+    # in cases, deaths and dalys in comparison to base scenario
+    
+    # burden columns
+    burden_columns <- c("cases", "deaths", "dalys")
+    
+    # streamline burden estimates for comparison
+    all_burden_compare <- all_burden [, lapply (.SD, sum, na.rm=TRUE), 
+                                      .SDcols = burden_columns,
+                                      by = .(country, year, scenario)]
+    
+    # sort by specific columns
+    setorderv (all_burden_compare, c("scenario", "country", "year"))
+    
+    # extract burden estimates of base scenario
+    burden_base <- all_burden_compare [scenario == base_scenario]
+    
+    all_burden_compare [, cases  := cases  / burden_base [, cases  ]]
+    all_burden_compare [, deaths := deaths / burden_base [, deaths ]]
+    all_burden_compare [, dalys  := dalys  / burden_base [, dalys  ]]
+    
+    
+    for (country_iso3_code in country_iso3_codes) {
+      
+      # plot burden -- cases, deaths, dalys
+      plotwhat       <- c("cases", "deaths", "dalys")
+      plotwhat_label <- c("Cases", "Deaths", "DALYs")
+      plotwhat_label <- paste0 (plotwhat_label, 
+                                " (proportion in comparison to base scenario)")
+      
+      for (i in 1:length (plotwhat)) {
+        
+        toplot = plotwhat [i]
+        
+        p <- ggplot(all_burden_compare [country == country_iso3_code], 
+                    aes(x     = year, 
+                        y     = get (toplot), 
+                        group = scenario, 
+                        color = factor (scenario))) +
+          scale_x_continuous (breaks = pretty_breaks ()) + 
+          stat_summary (fun = sum, geom = "line") +
+          ylab (toplot) + 
+          labs (title = countrycode (sourcevar   = country_iso3_code, 
+                                     origin      = "iso3c", 
+                                     destination = "country.name"),
+                x = "Year", 
+                y = plotwhat_label [i], 
+                colour = "Scenario") + 
+          theme_bw ()
+        
+        print (p)
+      }
       
       
     } # end of loop -- for (country_iso3_code in country_iso3_codes)
+    # --------------------------------------------------------------------------
+    
+    
+    # --------------------------------------------------------------------------
+    # add comparative plot across all scenarios for each country 
+    # total burden in each scenario for a given number of years
+    # total cases, deaths and dalys for each scenario
+    
+    # burden columns
+    burden_columns <- c("cases", "deaths", "dalys")
+    
+    # streamline burden estimates for comparison
+    all_burden_compare <- all_burden [, lapply (.SD, sum, na.rm=TRUE), 
+                                      .SDcols = burden_columns,
+                                      by = .(country, scenario)]
+    
+    # sort by specific columns
+    setorderv (all_burden_compare, c("country", "scenario"))
+    
+    for (country_iso3_code in country_iso3_codes) {
+      
+      # plot burden -- cases, deaths, dalys
+      plotwhat       <- c("cases", "deaths", "dalys")
+      plotwhat_label <- c("Cases", "Deaths", "DALYs")
+      
+      for (i in 1:length (plotwhat)) {
+        
+        toplot = plotwhat [i]
+        
+        p <- ggplot(all_burden_compare [country == country_iso3_code], 
+                    aes(x     = scenario, 
+                        y     = get (toplot), 
+                        fill = factor (scenario))) +
+          geom_col() +
+          ylab (toplot) +
+          labs (title = countrycode (sourcevar   = country_iso3_code, 
+                                     origin      = "iso3c", 
+                                     destination = "country.name"),
+                x = "Scenario", 
+                y = plotwhat_label [i], 
+                colour = "Scenario") + 
+          theme_bw () +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+          expand_limits (y = 0)
+        
+        print (p)
+      }
+      
+      
+    } # end of loop -- for (country_iso3_code in country_iso3_codes)
+    # --------------------------------------------------------------------------
+    
+    
+    # --------------------------------------------------------------------------
+    # add comparative plot across all scenarios for each country
+    # in comparison to a base scenario, (i.e.) proportional increase or decrease
+    # total cases, deaths and dalys for each scenario in comparison to base scenario
+    
+    # burden columns
+    burden_columns <- c("cases", "deaths", "dalys")
+    
+    # streamline burden estimates for comparison
+    all_burden_compare <- all_burden [, lapply (.SD, sum, na.rm=TRUE), 
+                                      .SDcols = burden_columns,
+                                      by = .(country, scenario)]
+    
+    # sort by specific columns
+    setorderv (all_burden_compare, c("scenario", "country"))
+    
+    # extract burden estimates of base scenario
+    burden_base <- all_burden_compare [scenario == base_scenario]
+    
+    all_burden_compare [, cases  := cases  / burden_base [, cases  ]]
+    all_burden_compare [, deaths := deaths / burden_base [, deaths ]]
+    all_burden_compare [, dalys  := dalys  / burden_base [, dalys  ]]
+    
+    for (country_iso3_code in country_iso3_codes) {
+      
+      # plot burden -- cases, deaths, dalys
+      plotwhat       <- c("cases", "deaths", "dalys")
+      plotwhat_label <- c("Cases", "Deaths", "DALYs")
+      plotwhat_label <- paste0 (plotwhat_label, 
+                                " (proportion in comparison to base scenario)")
+      
+      for (i in 1:length (plotwhat)) {
+        
+        toplot = plotwhat [i]
+        
+        p <- ggplot(all_burden_compare [country == country_iso3_code], 
+                    aes(x     = scenario, 
+                        y     = get (toplot), 
+                        fill = factor (scenario))) +
+          geom_col() +
+          ylab (toplot) +
+          labs (title = countrycode (sourcevar   = country_iso3_code, 
+                                     origin      = "iso3c", 
+                                     destination = "country.name"),
+                x = "Scenario", 
+                y = plotwhat_label [i], 
+                colour = "Scenario") + 
+          theme_bw () +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+        
+        print (p)
+      }
+      
+      
+    } # end of loop -- for (country_iso3_code in country_iso3_codes)
+    # --------------------------------------------------------------------------
     
     dev.off ()
     
@@ -1991,5 +2207,8 @@ diagnostic_plots <- function (vaccine_coverage_folder,
   
 } # end of function -- diagnostic_plots
 # ------------------------------------------------------------------------------
+
+
+
 
 
