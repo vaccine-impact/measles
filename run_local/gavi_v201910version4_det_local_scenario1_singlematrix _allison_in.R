@@ -65,7 +65,7 @@ if (run.local) {
 # scenario index to run
 index <- 2
 # for (index in 1:10) {  # debug #
-for (index in 1:2) {  # debug #
+for (index in 9:10) {  # debug #
   
   
   #  change these when new scenarios are released:
@@ -172,7 +172,7 @@ for (index in 1:2) {  # debug #
   # number of clusters to use
   # if larger than 1, country-specific model runs are distributed over specified number of clusters
   # note that model uses a lot of memory, so might not want to max out all clusters
-  use_cluster  <- 2   # debug #
+  use_cluster  <- 3   # debug #
   remove_files <- T
   
   # may want to process results after generating all data. Note OUTPUT files are not removed if remove_files == TRUE and process_results == FALSE
