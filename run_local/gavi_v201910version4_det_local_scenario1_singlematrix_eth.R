@@ -1,10 +1,10 @@
 # load libraries
-library (tictoc)
-library (data.table)
-library (doParallel)
+# library (tictoc)
+# library (data.table)
+# library (doParallel)
 
 # clear workspace 
-rm (list = ls ())
+# rm (list = ls ())
 
 
 tic ()  # start timer
@@ -52,6 +52,11 @@ if (run.local) {
                        version)
 }
 
+
+# foldername <- getwd ()  # CHECK #
+runs <- 1 # CHECK #
+
+
 ## if setting directories for the first time, this creates figures and outcome folders
 #  project.name <- "VIMC-2019runs"
 # 
@@ -64,7 +69,7 @@ if (run.local) {
 # scenario index to run
 index <- 12
 # for (index in 1:10) {  # debug #
-for (index in 12:12) {  # debug #
+for (index in 7:7) {  # debug #
   
   
   #  change these when new scenarios are released:
@@ -98,8 +103,11 @@ for (index in 12:12) {  # debug #
   
   
   # set SIAs and vaccination parameters for each scenario to minimize errors for running
+  # set.sia         <- c(1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1)
+  # set.vaccination <- c(0, 2, 2, 1, 0, 2, 2, 1, 0, 2, 2, 2)
+  
   set.sia         <- c(1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1)
-  set.vaccination <- c(0, 2, 2, 1, 0, 2, 2, 1, 0, 2, 2, 2)
+  set.vaccination <- c(0, 2, 2, 1, 0, 2, 1, 1, 0, 2, 2, 2)
   
   # ------------------------------------------------------------------------------
   # II		Options
@@ -207,6 +215,9 @@ for (index in 12:12) {  # debug #
   
   # log
   writelog("gavi_log",paste0("Main; gavi.r started"))
+  
+  using_openmpi <- FALSE # CHECK #
+  
   if(using_openmpi){
     writelog("gavi_log",paste0("Main; OpenMPI enabled"))
   } else {

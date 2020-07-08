@@ -1,5 +1,16 @@
 # gavi_v201910version4_det_local_scenario1_singlematrix _allison_in.R
 
+# load libraries
+library (tictoc)
+library (data.table)
+library (doParallel)
+
+# clear workspace 
+rm (list = ls ())
+
+tic ()  # start timer
+print (Sys.time ())
+
 # Title:		Run mathematical model for measles to update estimates for Gavi
 # Author:		Ed Jones, London School of Hygiene & Tropical Medicine. Edited by Kevin van Zandvoort, London School of Hygiene & Tropical Medicine, Petra Klepac, LSHTM
 # Date:			20/11/2019
@@ -54,9 +65,7 @@ if (run.local) {
 # scenario index to run
 index <- 2
 # for (index in 1:10) {  # debug #
-
-for (index in 11:14) {  # debug #
-
+for (index in 8:8) {  # debug #
   
   
   #  change these when new scenarios are released:
@@ -69,26 +78,19 @@ for (index in 11:14) {  # debug #
                      "campaign-default",                 # 7  MCV1&2 and SIAs
                      "mcv1-default",                     # 8  MCV1 only
                      "no-vaccination",                   # 9  no vaccination (set vaccination and using_sia to 0)
-                     "stop",                              # 10 MCV1&2 and SIAs
-                     
-                     "campaign-default_ETH_s1",                 # ETH s1
-                     "campaign-default_ETH_s2",                 # ETH s2
-                     "campaign-default_ETH_s3",                 # ETH s3
-                     "campaign-default_ETH_s4"                  # ETH s4
-                     
-                     )
+                     "stop"                              # 10 MCV1&2 and SIAs
+  )
   
   scenario <- scenario.name [index]
   
   # index variable for scenario to save it to a correct folder (scenarioXX, XX = 01,02,..... ,10)
-  counter       <- c(paste0 ("0", c(1:9)), "10", "11", "12", "13", "14")
+  counter       <- c(paste0 ("0", c(1:9)), "10")
   save.scenario <- paste0 ("scenario", counter[index ])  # debug #
   # save.scenario <- paste0 ("scenario", as.character(index))
   
   # set SIAs and vaccination parameters for each scenario to minimize errors for running
-  set.sia         <-   c(1, 0, 1, 0, 1, 0, 1, 0, 0, 1,    1, 1, 1, 1)
-  set.vaccination <-   c(0, 2, 2, 1, 0, 2, 2, 1, 0, 2,    2, 2, 2, 2)
-  # set.vaccination <- c(0, 2, 2, 1, 0, 2, 2, 1, 0, 2)
+  set.sia         <- c(1, 0, 1, 0, 1, 0, 1, 0, 0, 1)
+  set.vaccination <- c(0, 2, 2, 1, 0, 2, 2, 1, 0, 2)
   
   # ------------------------------------------------------------------------------
   # II		Options
@@ -104,10 +106,9 @@ for (index in 11:14) {  # debug #
   # ------------------------------------------------------------------------------
   if (index == 9) {
     
-    data_coverage_routine 	<- paste0 ("scenarios2019/coverage_routine_", scenario.name[index-1], ".csv")
-    
+    data_coverage_routine 	<- paste0("scenarios2019/coverage_routine_", scenario.name[index-1], ".csv")
     # file with SIA data (csv; in ./input/)
-    data_coverage_sia 		<- paste0 ("scenarios2019/coverage_sia_", scenario.name[index-1], ".csv") # "SIA_Gavi_1.csv" #"coverage_sia_imputed.csv"
+    data_coverage_sia 		<- paste0("scenarios2019/coverage_sia_", scenario.name[index-1], ".csv") # "SIA_Gavi_1.csv" #"coverage_sia_imputed.csv"
     
   } else {
     
@@ -157,25 +158,21 @@ for (index in 11:14) {  # debug #
   # IV		Advanced options (only change these if you know what you're doing!)
   # ------------------------------------------------------------------------------
   
-  sia.method	<- 1				             # 1 = variable take; 2 = variable degree
+  sia.method	<- 1				             # 1=variable take, 2=variable degree
   dinf		    <- 14				             # duration of infection (days)
   amplitude 	<- 0.05			             # amplitude for seasonality
   take 		    <- c (0.85, 0.95, 0.98)  # vaccine efficacy for take1 (take dose 1, before age 1), take2 (dose 1, after age 1) & take3 (dose 2). Note that dose2 only has an effect if vaccine==2.
-  degree 		  <- c (0.85, 0.95, 0.98)  # vaccine efficacy for degree1 (degree dose 1, before age 1), degree2 (dose 1, after age 1) & degree3 (dose 2). Note that dose2 only has an effect if vaccine==2.			
+  degree 		  <- c (0.85, 0.95, 0.98)  # vaccine efficacy for degree1 (degree dose 1, before age 1), deree2 (dose 1, after age 1) & degree3 (dose 2). Note that dose2 only has an effect if vaccine==2.			
   tstep			  <- 1000				           # Number of time steps in a year
   
-  # ----------------------------------------------------------------------------
-  # Measles model
   # filename of compiled fortran-model (in ./model/compiled/)
-  # ----------------------------------------------------------------------------
   # measles_model <- "vaccine2019_sia_singlematrix" # change this to reflect the right version of the fortran code
   measles_model <- "vaccine2019_sia_singlematrix.exe" # change this to reflect the right version of the fortran code
-  # ----------------------------------------------------------------------------
   
   # number of clusters to use
   # if larger than 1, country-specific model runs are distributed over specified number of clusters
   # note that model uses a lot of memory, so might not want to max out all clusters
-  use_cluster  <- 3   # debug #
+  use_cluster  <- 2   # debug #
   remove_files <- T
   
   # may want to process results after generating all data. Note OUTPUT files are not removed if remove_files == TRUE and process_results == FALSE
@@ -198,127 +195,10 @@ for (index in 11:14) {  # debug #
   
   # START OF MODEL  
   
-  # ----------------------------------------------------------------------------
-  # ----------------------------------------------------------------------------
-  # SETUP
-  
+  # setup
   # wd <- paste0(wd, project.name, "/")
   setwd (wd)			
-  # source (paste0("./gavi_setup_v", version, "_singlematrix.R"))
-
-  # load correct libraries when on cluster (using open MPI)
-  if("cluster_using_openmpi" %in% commandArgs()){
-    using_openmpi <- TRUE
-    require("doMPI")
-    require("parallel")
-    cl <- startMPIcluster()
-    registerDoMPI(cl)
-    print("using openMPI")
-  } else {
-    using_openmpi <- FALSE
-    print("no openMPI")
-  }
-  #load required libraries
-  if(!using_openmpi){
-    require("doParallel")
-  }
-  
-  # function for each country
-  # source (paste0(wd,"gavi_runcountry_v", version, "_singlematrix.R"))
-  
-  # clean environment
-  if(file.exists("gavi_progress")){
-    file.remove("gavi_progress")
-  }
-  
-  # are we running a PSA - a deterministic or "stochastic" model?		
-  if(psa==0){
-    det_stoch <- "deter" #deterministic
-    runs<-1
-  } else {
-    det_stoch <- "stoch" #stochastic
-    runs<-psa
-  }
-  
-  # create folder with correct name for in- and output data if not yet exists
-  # typically foldername should not exist - but may come in handy when only processing results
-  if( !exists("foldername_analysis") ){
-    foldername <- paste0(
-      format(Sys.time(),format="%Y%m%d"),
-      "_v",
-      vaccination,
-      "_s",
-      using_sia,
-      "_",
-      det_stoch
-    )
-    dir.create(
-      file.path(
-        paste0(
-          getwd(),
-          "/outcome/",save.scenario, "/",
-          foldername
-        )
-      ), recursive = T
-    )
-    dir.create(
-      file.path(
-        paste0(
-          getwd(),
-          "/outcome/",save.scenario, "/",
-          foldername,
-          "/input"
-        )
-      ), recursive = T
-    )
-    dir.create(
-      file.path(
-        paste0(
-          getwd(),
-          "/outcome/",save.scenario, "/",
-          foldername,
-          "/output"
-        )
-      ), recursive = T
-    )
-    if(psa > 0){
-      for(p in 1:psa){
-        if(p<10){
-          p <- paste0("00",p)
-        } else if(p<100){
-          p <- paste0("0",p)
-        }
-        dir.create(
-          file.path(
-            paste0(
-              getwd(),
-              "/outcome/",save.scenario, "/",
-              foldername,
-              "/input/",
-              paste0("run",p)
-            )
-          ), recursive = T
-        )
-        dir.create(
-          file.path(
-            paste0(
-              getwd(),
-              "/outcome/",save.scenario, "/",
-              foldername,
-              "/output/",
-              paste0("run",p)
-            )
-          ), recursive = T
-        )
-      }
-    }
-  } else {
-    foldername <- foldername_analysis
-  }
-  
-  # ----------------------------------------------------------------------------
-  # ----------------------------------------------------------------------------
-  
+  source (paste0("./gavi_setup_v", version, "_singlematrix.R"))
   
   # log
   writelog("gavi_log",paste0("Main; gavi.r started"))
@@ -344,9 +224,9 @@ for (index in 11:14) {  # debug #
   coverage_sia <- coverage_sia[, .SD[1], by = c("country_code", "year")]
   
   if (psa > 0) {
-    if (file.exists(paste0("input/", data_psa))){
+    if (file.exists(paste0("input/",data_psa))){
       # read csv if file already exists
-      psa_var <- fread(paste0("input/", data_psa))
+      psa_var <- fread(paste0("input/",data_psa))
       
       # check if psa_var corresponds with psa
       if(nrow(psa_var) != psa){
@@ -382,7 +262,7 @@ for (index in 11:14) {  # debug #
   countries	<- as.character(unique(coverage_routine[,country_code]))  
   # countries	<- as.character(unique(coverage_routine[,country_code]))[1]  # debug #
   # countries	<- c ("ETH", "BGD", "SSD", "NGA")
-  countries	<- c ("ETH")
+  # countries	<- c ("ETH")
   # countries	<- as.character(unique(coverage_routine[,country_code]))
   
   # change to run only for a set of specified missing countries
@@ -813,4 +693,6 @@ if (using_openmpi){
   mpi.quit()
 }
 
+print (Sys.time ())
+toc ()  # stop timer 
 
