@@ -737,8 +737,8 @@ runCountry <- function (
     if (debug_country != "*" & !(iso3 %in% debug_country)){
       debug_debug			    <- 0
       debug_compartments	<- 0
-      debug_age		       	<- 0
-      debug_timepoints  	<- 0
+      debug_age		       	<- 1
+      debug_timepoints  	<- 1
       debug_relative	  	<- 0
     } else {
       debug_debug 	     	<- as.integer (debug_spinup) + 2 * as.integer(debug_model)
@@ -1019,8 +1019,8 @@ runScenario <- function (vaccine_coverage_folder    = "",
   
   debug_compartments<- 1
   # debug_compartments<- 0			  #TRUE/FALSE: If true: output size of each compartment. If false: output number of cases. If 2: debug vaccinated
-  debug_age         <- 0        #0-2. If 0: output all in annual age-strata. If 1: output age 0-2 in weekly age-strata, 3-100 in annual age-strata. If 2: sum all age-strata.
-  debug_timepoints	<- 0			  #0-2. If 0: output per year. If 1: output per timepoint and report first 25% of timepoints. If 2: output per timepoint and report all timepoints.
+  debug_age         <- 1        #0-2. If 0: output all in annual age-strata. If 1: output age 0-2 in weekly age-strata, 3-100 in annual age-strata. If 2: sum all age-strata.
+  debug_timepoints	<- 1			  #0-2. If 0: output per year. If 1: output per timepoint and report first 25% of timepoints. If 2: output per timepoint and report all timepoints.
   debug_relative		<- FALSE		#If true: output proportion of new cases. If false, output absolute number of new cases.
   
   # START OF MODEL  

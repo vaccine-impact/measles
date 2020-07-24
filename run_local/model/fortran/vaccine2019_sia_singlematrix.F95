@@ -754,7 +754,7 @@ program measles
 		open(9915,file=outfile,status='NEW')
 
 		if( debug_timepoints == 0 ) then
-			t_increment = tstep
+			t_increment = tstep - 1
 			t_scale = 1
 		else
 			t_increment = 1
@@ -774,7 +774,7 @@ program measles
 			do 1144 a=1, amax, 1
 				astart = a
 				!move to next loop if yearly age-strata are used for first 3 years
-				if ( debug_age == 0 .AND. a < 106 ) then
+				if ( debug_age == 0 .AND. a < 157 ) then
 					if( a == 1 .OR. a == 53 .OR. a == 105 ) then
 						aend = astart + 51
 					else
@@ -1692,7 +1692,7 @@ program measles
 			do 9951 a=1, amax, 1
 				astart = a
 				!move to next loop if yearly age-strata are used for first 3 years
-				if ( debug_age == 0 .AND. a < 106 ) then
+				if ( debug_age == 0 .AND. a < 157 ) then
 					if( a == 1 .OR. a == 53 .OR. a == 105 ) then
 						aend = astart + 51
 					else

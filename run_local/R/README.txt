@@ -30,6 +30,8 @@ Folders:
 
 - central_burden_estimate
     subfolders Portnoy & Wolfson: central burden estimates for Portnoy and Wolfson CFRs
+- central_burden_estimate/Wolfson
+- central_burden_estimate/Portnoy
 
 - plots
     subfolder with touchstone name contains diagnostic plots
