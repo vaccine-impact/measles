@@ -133,22 +133,31 @@ create_vaccine_coverage_routine_sia <- function (vaccine_coverage_folder    = ""
   # remove temporary columns
   sia2 <- sia2 [, .SD, .SDcols = -temp.cols2]
   
+  # ----------------------------------------------------------------------------
   # FROM GUIDELINES FOR 2019 RUNS: 
   # *coverage* shows the level of vaccination coverage, usually ranging from 0 (0%)
   # to 1 (100%). In some cases, this value may be greater than 1. For example, if a
   # campaign originally targets 1 million people but ends up vaccinating 1.1
-  # million people, the coverage would be shown as 1.1 (equating to 110%). Coverage
-  # and target population are now always specified at a national level. For
-  # example, where a campaign targets all ages in Region A (population 1,000,000)
+  # million people, the coverage would be shown as 1.1 (equating to 110%). 
+  #
+  # Coverage and target population are now always specified at a national level. 
+  # 
+  # For example, where a campaign targets all ages in Region A (population 1,000,000)
   # and achieves 90% coverage, and where the population of the whole country is
   # 5,000,000, the coverage would appear on Montagu as 0.18 (18%) and the target
-  # population as 5,000,000. This way of specifying coverage and target population
+  # population as 5,000,000. 
+  # 
+  # This way of specifying coverage and target population
   # applies in both past and future years. *target* is the number of individuals in
-  # the target population. This is always shown for campaigns, and is now specified
-  # at a national level. (See ‘coverage’ section above.) For routine, target is
-  # shown as NA, which means you should assume the target population matches the
-  # population shown in the demographic data downloads for the corresponding ages
-  # (age_first and age_last). 
+  # the target population. 
+  #
+  # This is always shown for campaigns, and is now specified
+  # at a national level. (See ‘coverage’ section above.) 
+  #
+  # For routine, target is shown as NA, which means you should assume the target 
+  # population matches the population shown in the demographic data downloads 
+  # for the corresponding ages (age_first and age_last). 
+  # ----------------------------------------------------------------------------
   
   # infer reached from coverage
   sia2 [, reached := as.numeric(target) * as.numeric(coverage)]
@@ -737,8 +746,8 @@ runCountry <- function (
     if (debug_country != "*" & !(iso3 %in% debug_country)){
       debug_debug			    <- 0
       debug_compartments	<- 0
-      debug_age		       	<- 1
-      debug_timepoints  	<- 1
+      debug_age		       	<- 0
+      debug_timepoints  	<- 0
       debug_relative	  	<- 0
     } else {
       debug_debug 	     	<- as.integer (debug_spinup) + 2 * as.integer(debug_model)
@@ -1019,8 +1028,8 @@ runScenario <- function (vaccine_coverage_folder    = "",
   
   debug_compartments<- 1
   # debug_compartments<- 0			  #TRUE/FALSE: If true: output size of each compartment. If false: output number of cases. If 2: debug vaccinated
-  debug_age         <- 1        #0-2. If 0: output all in annual age-strata. If 1: output age 0-2 in weekly age-strata, 3-100 in annual age-strata. If 2: sum all age-strata.
-  debug_timepoints	<- 1			  #0-2. If 0: output per year. If 1: output per timepoint and report first 25% of timepoints. If 2: output per timepoint and report all timepoints.
+  debug_age         <- 0        #0-2. If 0: output all in annual age-strata. If 1: output age 0-2 in weekly age-strata, 3-100 in annual age-strata. If 2: sum all age-strata.
+  debug_timepoints	<- 0			  #0-2. If 0: output per year. If 1: output per timepoint and report first 25% of timepoints. If 2: output per timepoint and report all timepoints.
   debug_relative		<- FALSE		#If true: output proportion of new cases. If false, output absolute number of new cases.
   
   # START OF MODEL  

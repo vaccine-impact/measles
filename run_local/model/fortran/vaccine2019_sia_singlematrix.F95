@@ -1490,7 +1490,8 @@ program measles
 
 						VS(a,hh)	=	VS(a,hh)			&
 										+dS_VS				&
-										-dVS_V2S
+										-dVS_V2S				&
+										-dVS_V2R
 
 						VI(a,hh)	=	VI(a,hh)			&
 										+dI_VI				&
@@ -1672,7 +1673,7 @@ program measles
 		open(9916,file=outfile,status='NEW')
 
 		if( debug_timepoints == 0 ) then
-			t_increment = tstep
+			t_increment = tstep - 1
 			t_scale = 1
 		else
 			t_increment = 1

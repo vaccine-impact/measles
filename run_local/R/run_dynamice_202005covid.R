@@ -64,8 +64,8 @@ var <- list (
   
   # countries - specify iso3 codes to analyse only these countries
   #             or set it to "all" to analyse all included countries
-  # countries                         = c ("all"),
-  countries                         = c("ETH"),  # debug -- c("BGD", "ETH") / "all"
+  countries                         = c ("all"),
+  # countries                         = c("ETH"),  # debug -- c("BGD", "ETH") / "all"
   
   cluster_cores                     = 2,  # number of cores
   psa                               = 0   # psa runs; 0 for single run
@@ -86,7 +86,7 @@ scenarios <- c("counterfactual-bau-scenario1",
                )
 
 # debug
-scenarios <- c("counterfactual-bau-scenario1")
+# scenarios <- c("counterfactual-bau-scenario1")
 
 # create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full ()
@@ -96,6 +96,8 @@ for (index in 1:length(scenarios)) {
 
   # set scenario name 
   scenario_name   <- scenarios [index]
+  print (scenario_name)
+  tic ()
   
   # set scenario number in order to save it in the right folder
   #   scenarioXX, XX = 01, 02, ... ,10, 11, 12, ...
@@ -161,6 +163,7 @@ for (index in 1:length(scenarios)) {
                        )
   # ----------------------------------------------------------------------------
 
+  toc ()
 } # end of loop -- for (scenario in scenarios)
 
 
