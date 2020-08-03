@@ -1023,8 +1023,8 @@ runScenario <- function (vaccine_coverage_folder    = "",
   debug_country		  <- "*"			#ISO3 codes of country to debug, * to debug all countries
   debug_spinup		  <- FALSE		#TRUE/FALSE: If true, generate data for spin-up period of model
   
-  debug_model       <- TRUE
-  # debug_model			  <- FALSE		#TRUE/FALSE: If true: generate data for period after spin-up
+  # debug_model       <- TRUE
+  debug_model			  <- FALSE		#TRUE/FALSE: If true: generate data for period after spin-up
   
   debug_compartments<- 1
   # debug_compartments<- 0			  #TRUE/FALSE: If true: output size of each compartment. If false: output number of cases. If 2: debug vaccinated
@@ -1174,7 +1174,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
   lexp_remain       <- fread (paste0 ("input/", data_life_exp_remain)) 
   
   # coverage_sia has multiple entries per year for some countries, take only the first entry
-  coverage_sia <- coverage_sia[, .SD[1], by = c("country_code", "year")]
+  # coverage_sia <- coverage_sia[, .SD[1], by = c("country_code", "year")]
   
   # --------------------------------------------------------------------------
   # if psa variables file does not exist, then create psa variables file
