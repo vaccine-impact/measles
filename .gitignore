@@ -45,3 +45,5 @@ run_local/gavi_progress
 run_local/model/compiled/vaccine2019
 *.exe
 *.pdf
+run_local/R/debug_plots/ETH_debug_model.txt
+run_local/R/debug_plots/ETH_debug_model_debug0.txt
