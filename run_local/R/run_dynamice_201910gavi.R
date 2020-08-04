@@ -63,8 +63,8 @@ var <- list (
   
   # countries - specify iso3 codes to analyse only these countries
   #             or set it to "all" to analyse all included countries
-  # countries                         = c ("all"),
-  countries                         = c("BGD"),  # debug -- c("BGD", "ETH") / "all"
+  countries                         = c ("all"),
+  # countries                         = c("BGD"),  # debug -- c("BGD", "ETH") / "all"
   
   cluster_cores                     = 2,  # number of cores
   psa                               = 0   # psa runs; 0 for single run
@@ -83,13 +83,14 @@ scenarios <- c("campaign-only-bestcase",  # 1  SIAs only
                "no-vaccination",          # 9  no vaccination (set vaccination and using_sia to 0)
                "stop"                     # 10 MCV1 & MCV2 and SIAs
                )
-
+# ------------------------------------------------------------------------------
 # specify scenarios to run
 first_scenario <- 1
 last_scenario  <- length (scenarios)
 # debug
-first_scenario <- 8
-last_scenario  <- 9
+# first_scenario <- 8
+# last_scenario  <- 9
+# ------------------------------------------------------------------------------
 
 # set SIAs and vaccination parameters for each scenario to minimize errors for running
 set.sia         <- c (1, 0, 1, 0, 1, 0, 1, 0, 0, 1)
