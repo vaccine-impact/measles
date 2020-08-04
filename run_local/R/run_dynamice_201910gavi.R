@@ -66,7 +66,7 @@ var <- list (
   countries                         = c ("all"),
   # countries                         = c("BGD"),  # debug -- c("BGD", "ETH") / "all"
   
-  cluster_cores                     = 2,  # number of cores
+  cluster_cores                     = 3,  # number of cores
   psa                               = 0   # psa runs; 0 for single run
   )
 
