@@ -88,8 +88,8 @@ scenarios <- c("campaign-only-bestcase",  # 1  SIAs only
 first_scenario <- 1
 last_scenario  <- length (scenarios)
 # debug
-# first_scenario <- 8
-# last_scenario  <- 9
+# first_scenario <- 5
+# last_scenario  <- 5
 # ------------------------------------------------------------------------------
 
 # set SIAs and vaccination parameters for each scenario to minimize errors for running
@@ -105,6 +105,25 @@ create_no_vaccination_coverage_file (
   no_vaccination_coverage_file = "vaccine_coverage/coverage_201910gavi-5_measles-no-vaccination.csv", 
   vaccination_coverage_file    = "vaccine_coverage/coverage_201910gavi-5_measles-mcv1-default.csv"
   )
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# Create vaccine coverage file for campaign only vaccination scenario using 
+# (routine + campaign) vaccination scenario. 
+# Set routine coverage to zero. This is done because routine coverage values are
+# needed even if they are only zero to run campaign only vaccination scenario.
+
+# scenario: campaign-only-bestcase
+create_campaign_vaccination_coverage_file (
+  campaign_only_vaccination_coverage_file    = "vaccine_coverage/coverage_201910gavi-5_measles-campaign-only-bestcase.csv",
+  routine_campaign_vaccination_coverage_file = "vaccine_coverage/coverage_201910gavi-5_measles-campaign-bestcase.csv"
+  )
+ 
+# scenario: campaign-only-default
+create_campaign_vaccination_coverage_file (
+  campaign_only_vaccination_coverage_file    = "vaccine_coverage/coverage_201910gavi-5_measles-campaign-only-default.csv",
+  routine_campaign_vaccination_coverage_file = "vaccine_coverage/coverage_201910gavi-5_measles-campaign-default.csv"
+)
 # ------------------------------------------------------------------------------
 
 

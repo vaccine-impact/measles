@@ -2245,7 +2245,7 @@ create_no_vaccination_coverage_file <- function (no_vaccination_coverage_file,
   vaccine_coverage [, coverage := 0]
   
   # save zero vaccine coverage to no vaccination scenario coverage file
-  fwrite (x = vaccine_coverage, 
+  fwrite (x    = vaccine_coverage, 
           file = no_vaccination_coverage_file)
   
   return ()
@@ -2254,6 +2254,28 @@ create_no_vaccination_coverage_file <- function (no_vaccination_coverage_file,
 # ------------------------------------------------------------------------------
 
 
+# ------------------------------------------------------------------------------
+# Create vaccine coverage file for campaign only vaccination scenario using 
+# (routine + campaign) vaccination scenario. 
+# Set routine coverage to zero. This is done because routine coverage values are
+# needed even if they are only zero to run campaign only vaccination scenario.
+create_campaign_vaccination_coverage_file <- function (campaign_only_vaccination_coverage_file, 
+                                                       routine_campaign_vaccination_coverage_file) {
+  
+  # read vaccine coverage from (routine + campaign) vaccination coverage file
+  vaccine_coverage <- fread (file = routine_campaign_vaccination_coverage_file)
+  
+  # set vaccine coverage of routine to zero
+  vaccine_coverage [activity_type == "routine", coverage := 0]
+  
+  # save vaccine coverage to campaign only vaccination coverage file
+  fwrite (x    = vaccine_coverage, 
+          file = campaign_only_vaccination_coverage_file)
+  
+  return ()
+  
+} # end of function -- create_campaign_vaccination_coverage_file
+# ------------------------------------------------------------------------------
 
 
 

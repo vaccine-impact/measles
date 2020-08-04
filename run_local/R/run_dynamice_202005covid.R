@@ -187,7 +187,8 @@ diagnostic_plots (
   cfr_options                = c("Wolfson", "Portnoy"),
   psa                        = var$psa,
   start_year                 = 2015,
-  end_year                   = 2030
+  end_year                   = 2030, 
+  compare_plots              = TRUE
 )
 # ------------------------------------------------------------------------------
 
