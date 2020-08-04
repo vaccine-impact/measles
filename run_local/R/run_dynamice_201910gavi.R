@@ -33,7 +33,6 @@ source ("functions.R")
 
 # start time
 print (Sys.time ())
-tic ()
 
 # set seed for random number generator
 set.seed (1) 
@@ -65,50 +64,59 @@ var <- list (
   # countries - specify iso3 codes to analyse only these countries
   #             or set it to "all" to analyse all included countries
   # countries                         = c ("all"),
-  countries                         = c("all"),  # debug -- c("BGD", "ETH") / "all"
+  countries                         = c("BGD"),  # debug -- c("BGD", "ETH") / "all"
   
   cluster_cores                     = 2,  # number of cores
   psa                               = 0   # psa runs; 0 for single run
   )
 
-# scenarios <- c("counterfactual-bau-scenario1", 
-#                "disruption-scenario2-sia2021", 
-#                "disruption-scenario3-sia2022", 
-#                "disruption-scenario4-25rout",
-#                "disruption-scenario5-25rout-sia2021",
-#                "disruption-scenario6-25rout-sia2022",
-#                "disruption-scenario7-50rout",
-#                "disruption-scenario8-50rout-sia2021",
-#                "disruption-scenario9-50rout-sia2022",
-#                "disruption-scenario10-25rout-25sia",
-#                "disruption-scenario11-0sia"
-#                )
-
-
+# ------------------------------------------------------------------------------
 # scenarios
 scenarios <- c("campaign-only-bestcase",  # 1  SIAs only
-               "mcv2-bestcase",           # 2  MCV1&2
-               "campaign-bestcase",       # 3  MCV1&2 and SIAs
+               "mcv2-bestcase",           # 2  MCV1 & MCV2
+               "campaign-bestcase",       # 3  MCV1 & MCV2 and SIAs
                "mcv1-bestcase",           # 4  MCV1 only
                "campaign-only-default",   # 5  SIAs only
-               "mcv2-default",            # 6  MCV1&2
-               "campaign-default",        # 7  MCV1&2 and SIAs
+               "mcv2-default",            # 6  MCV1 & MCV2
+               "campaign-default",        # 7  MCV1 & MCV2 and SIAs
                "mcv1-default",            # 8  MCV1 only
                "no-vaccination",          # 9  no vaccination (set vaccination and using_sia to 0)
-               "stop"                    # 10 MCV1&2 and SIAs
+               "stop"                     # 10 MCV1 & MCV2 and SIAs
                )
 
+# specify scenarios to run
+first_scenario <- 1
+last_scenario  <- length (scenarios)
 # debug
-# scenarios <- c("no-vaccination")
+first_scenario <- 8
+last_scenario  <- 9
+
+# set SIAs and vaccination parameters for each scenario to minimize errors for running
+set.sia         <- c (1, 0, 1, 0, 1, 0, 1, 0, 0, 1)
+set.vaccination <- c (0, 2, 2, 1, 0, 2, 2, 1, 0, 2)
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# Create vaccine coverage file (0% coverage) for no vaccination scenario using 
+# another vaccination scenario. This is done because VIMC vaccine coverage file
+# for no vaccination scenario is empty
+create_no_vaccination_coverage_file (
+  no_vaccination_coverage_file = "vaccine_coverage/coverage_201910gavi-5_measles-no-vaccination.csv", 
+  vaccination_coverage_file    = "vaccine_coverage/coverage_201910gavi-5_measles-mcv1-default.csv"
+  )
+# ------------------------------------------------------------------------------
+
 
 # create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full ()
 
 # loop through scenarios
-for (index in 1:length(scenarios)) {
+for (index in first_scenario:last_scenario) {
 
   # set scenario name 
   scenario_name   <- scenarios [index]
+  print (scenario_name)
+  tic ()
   
   # set scenario number in order to save it in the right folder
   #   scenarioXX, XX = 01, 02, ... ,10, 11, 12, ...
@@ -120,15 +128,14 @@ for (index in 1:length(scenarios)) {
   # VIMC vaccine coverage file: 
   #   paste0 (vaccine_coverage_folder, prefix, touchstone, scenario, ".csv")
   
-  # TEMP comment
-  # create_vaccine_coverage_routine_sia (
-  #   vaccine_coverage_folder    = var$vaccine_coverage_folder, 
-  #   coverage_prefix            = var$coverage_prefix,
-  #   touchstone                 = var$touchstone,
-  #   antigen                    = var$antigen,
-  #   scenario_name              = scenario_name,
-  #   vaccine_coverage_subfolder = var$vaccine_coverage_subfolder
-  #   )
+  create_vaccine_coverage_routine_sia (
+    vaccine_coverage_folder    = var$vaccine_coverage_folder,
+    coverage_prefix            = var$coverage_prefix,
+    touchstone                 = var$touchstone,
+    antigen                    = var$antigen,
+    scenario_name              = scenario_name,
+    vaccine_coverage_subfolder = var$vaccine_coverage_subfolder
+    )
   # ----------------------------------------------------------------------------
   
   # ----------------------------------------------------------------------------
@@ -136,30 +143,24 @@ for (index in 1:length(scenarios)) {
   #
   # run scenario -- get burden estimates -- primarily cases
   # return burden estimate file name where estimates are saved
-  
-  # TEMP comment
-  # burden_estimate_file <- runScenario (
-  #   vaccine_coverage_folder    = var$vaccine_coverage_folder,
-  #   coverage_prefix            = var$coverage_prefix,
-  #   touchstone                 = var$touchstone,
-  #   antigen                    = var$antigen,
-  #   scenario_name              = scenario_name,
-  #   scenario_number            = scenario_number,
-  #   vaccine_coverage_subfolder = var$vaccine_coverage_subfolder,
-  #   burden_template            = var$burden_template,
-  #   burden_estimate_folder     = var$central_burden_estimate_folder,
-  #   group_name                 = var$group_name,
-  #   countries                  = var$countries,
-  #   cluster_cores              = var$cluster_cores,
-  #   psa                        = var$psa,
-  #   vaccination                = 2,
-  #   using_sia                  = 1 
-  #   )
+  burden_estimate_file <- runScenario (
+    vaccine_coverage_folder    = var$vaccine_coverage_folder,
+    coverage_prefix            = var$coverage_prefix,
+    touchstone                 = var$touchstone,
+    antigen                    = var$antigen,
+    scenario_name              = scenario_name,
+    scenario_number            = scenario_number,
+    vaccine_coverage_subfolder = var$vaccine_coverage_subfolder,
+    burden_template            = var$burden_template,
+    burden_estimate_folder     = var$central_burden_estimate_folder,
+    group_name                 = var$group_name,
+    countries                  = var$countries,
+    cluster_cores              = var$cluster_cores,
+    psa                        = var$psa,
+    vaccination                = set.vaccination [index],
+    using_sia                  = set.sia         [index]
+    )
   # ----------------------------------------------------------------------------
-  
-  # TEMP 
-  # burden estimate file
-  burden_estimate_file <- paste0 ("central_burden_estimate_Measles-LSHTM-Jit-", scenario_name, ".csv")
   
   # ----------------------------------------------------------------------------
   # estimate deaths and DALYs
@@ -167,9 +168,10 @@ for (index in 1:length(scenarios)) {
   # apply CFR (case fatality rates) to estimate deaths -- Wolfson
   #   save results in corresponding cfr_option subfolder
   #   append cfr_option to results file
-  estimateDeathsDalys (cfr_option             = "Wolfson",
-                       burden_estimate_file   = burden_estimate_file,
-                       burden_estimate_folder = var$central_burden_estimate_folder)
+  # uncomment below to run with cfr_option = "Wolfson"
+  # estimateDeathsDalys (cfr_option             = "Wolfson",
+  #                      burden_estimate_file   = burden_estimate_file,
+  #                      burden_estimate_folder = var$central_burden_estimate_folder)
 
   # apply CFR (case fatality rates) to estimate deaths -- Portnoy
   #   save results in corresponding cfr_option subfolder
@@ -182,6 +184,7 @@ for (index in 1:length(scenarios)) {
                        )
   # ----------------------------------------------------------------------------
 
+  toc ()
 } # end of loop -- for (scenario in scenarios)
 
 
@@ -191,22 +194,24 @@ base_scenario <- "no-vaccination"
 # TEMP comment
 # # ------------------------------------------------------------------------------
 # # diagnostic plots of vaccine coverage and burden estimates (cases, deaths, dalys)
-# diagnostic_plots (
-#   vaccine_coverage_folder    = var$vaccine_coverage_folder,
-#   coverage_prefix            = var$coverage_prefix,
-#   touchstone                 = var$touchstone,
-#   antigen                    = var$antigen,
-#   scenarios                  = scenarios,
-#   base_scenario              = base_scenario,
-#   burden_estimate_folder     = var$central_burden_estimate_folder,
-#   plot_folder                = var$plot_folder,
-#   group_name                 = var$group_name,
-#   countries                  = var$countries,
-#   cfr_options                = c("Wolfson", "Portnoy"),
-#   psa                        = var$psa,
-#   start_year                 = 2000,
-#   end_year                   = 2030
-# )
+diagnostic_plots (
+  vaccine_coverage_folder    = var$vaccine_coverage_folder,
+  coverage_prefix            = var$coverage_prefix,
+  touchstone                 = var$touchstone,
+  antigen                    = var$antigen,
+  scenarios                  = scenarios [first_scenario:last_scenario],
+  base_scenario              = base_scenario,
+  burden_estimate_folder     = var$central_burden_estimate_folder,
+  plot_folder                = var$plot_folder,
+  group_name                 = var$group_name,
+  countries                  = var$countries,
+  # cfr_options                = c("Wolfson", "Portnoy"),
+  cfr_options                = c ("Portnoy"),
+  psa                        = var$psa,
+  start_year                 = 2000,
+  end_year                   = 2100,
+  compare_plots              = FALSE
+  )
 # # ------------------------------------------------------------------------------
 
 
@@ -215,8 +220,7 @@ setwd (source_wd)
 
 # end time
 print (Sys.time ())
-toc ()
 
 # ------------------------------------------------------------------------------
-# main program -- stop
+# main program -- end
 # ------------------------------------------------------------------------------
