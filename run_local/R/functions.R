@@ -91,6 +91,10 @@ create_vaccine_coverage_routine_sia <- function (vaccine_coverage_folder    = ""
                 stringsAsFactors = F, 
                 na.strings       = "<NA>")
   
+  # set start age to 0 years for campaigns starting at ages less than 1 year,  
+  # that is, 6 months, 9 months, etc
+  sia [activity_type == "campaign" & age_first == 1, age_first := 0]
+  
   # extract routine vaccination coverage
   routine <- sia [activity_type != "campaign",]
   
@@ -1023,8 +1027,8 @@ runScenario <- function (vaccine_coverage_folder    = "",
   debug_country		  <- "*"			#ISO3 codes of country to debug, * to debug all countries
   debug_spinup		  <- FALSE		#TRUE/FALSE: If true, generate data for spin-up period of model
   
-  # debug_model       <- TRUE
-  debug_model			  <- FALSE		#TRUE/FALSE: If true: generate data for period after spin-up
+  debug_model       <- TRUE
+  # debug_model			  <- FALSE		#TRUE/FALSE: If true: generate data for period after spin-up
   
   debug_compartments<- 1
   # debug_compartments<- 0			  #TRUE/FALSE: If true: output size of each compartment. If false: output number of cases. If 2: debug vaccinated
