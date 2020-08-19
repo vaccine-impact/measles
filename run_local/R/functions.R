@@ -91,15 +91,22 @@ create_vaccine_coverage_routine_sia <- function (vaccine_coverage_folder    = ""
                 stringsAsFactors = F, 
                 na.strings       = "<NA>")
   
-  # set start age to 0 years for campaigns starting at ages less than 1 year,  
-  # that is, 6 months, 9 months, etc
-  sia [activity_type == "campaign" & age_first == 1, age_first := 0]
-  
   # extract routine vaccination coverage
   routine <- sia [activity_type != "campaign",]
   
   # only select campaigns
   sia2 <- sia [activity_type == "campaign" & ( (!is.na(target) & target != 0) | (!is.na(coverage) ) ), ]
+  
+  # ----------------------------------------------------------------------------
+  # set start age to fraction of a year for campaigns starting at ages 
+  # less than 1 year, that is, 6 months, 9 months, etc will become 0.5
+  # if age_range_verbatim is set as default or other text, then set start age to 0.5 (6 months) 
+
+  sia2 [                 , age_first := as.double (age_first)]
+  sia2 [   age_first == 1, age_first := as.double (str_extract (age_range_verbatim, "\\d+")) / 12]
+  sia2 [is.na (age_first), age_first := 0.5]
+  # ----------------------------------------------------------------------------
+
   
   # remove unused columns
   discard.cols <- c ("scenario", "set_name", "gavi_support", "activity_type")
