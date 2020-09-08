@@ -1080,8 +1080,10 @@ program measles
 								-agerate_annual*V3R(a,hh)		&
 								+agerate_annual*V3R(a-1,hh)
 			1927 continue
-			!loop through age-groups, 156 weeks until 105 weeks (3yo)
-			do 19167 a =(156),105,-1
+			!old: loop through age-groups, 156 weeks until 105 weeks (3yo)
+			!do 19167 a =(156),105,-1
+			!update: loop through age-groups, 156 weeks until 73 weeks
+			do 19167 a =(156),73,-1
 				!M(a,hh)		=M(a,hh)	-M(a,hh)*52/real(tstep) 	+M(a-1,hh)*52/real(tstep)
 				!S(a,hh)		=S(a,hh) 	-S(a,hh)*52/real(tstep) 	+(1-cov(a-1))*S(a-1,hh)*52/real(tstep)
 
@@ -1149,8 +1151,10 @@ program measles
 								-agerate_week*V3R(a,hh)										&
 								+agerate_week*V3R(a-1,hh)
 			19167 continue
-			!those that are 104weeks (exactly 2yo)
-			a=104
+			!old: those that are 104weeks (exactly 2yo)
+			!a=104
+			!update: those that are 72 weeks (15-18 months)
+			a=72			
 			!calculate new vaccinations
 			!M(a,hh)		=M(a,hh)	-M(a,hh)*52/real(tstep) 	+M(a-1,hh)*52/real(tstep)
 			!S(a,hh)		=S(a,hh)	-S(a,hh)*52/real(tstep)		+(1-cov2)*(1-cov(a-1))*S(a-1,hh)*52/real(tstep)
@@ -1235,8 +1239,10 @@ program measles
 							+agerate_week*take_inc*cov2*V2S(a-1,hh)										&
 							+agerate_week*cov2*V2R(a-1,hh)												&
 							+agerate_week*V3R(a-1,hh)
-			!loop through age-groups 103-55 weeks old
-			do 1967 a=103,55,-1
+			!old: loop through age-groups 103-55 weeks old
+			!do 1967 a=103,55,-1
+			!loop through age-groups 71-55 weeks old
+			do 1967 a=71,55,-1
 				!M(a,hh)		=M(a,hh)	-M(a,hh)*52/real(tstep) 		+(1-cov(a-1))*M(a-1,hh)*52/real(tstep)
 				!S(a,hh)		=S(a,hh) 	-S(a,hh)*52/real(tstep) 		+(1-cov(a-1))*S(a-1,hh)*52/real(tstep)
 				M(a,hh)		=	M(a,hh-1)                                                        	&
