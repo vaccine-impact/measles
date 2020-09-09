@@ -60,7 +60,8 @@ contains
 		real(dp), intent(out)  :: sia2
 
 		! find what the SIA reach should be from the regression
-		tempreach = a - b*m1cov
+		! tempreach = a - b*m1cov
+		tempreach = a + b*m1cov
 		! if this number is greater than 1 set it to 0.98
 		if(tempreach .gt. 1) then
 			tempreach = real(0.98, dp)
@@ -346,17 +347,20 @@ program measles
 	!ve_b = real(0.00148,dp)
 
   ! ----------------------------------------------------------------------------
-	! SIA reach regression parameters for function SIAcov
+	! SIA reach regression parameters for function SIAcov 
+  ! From Allison's paper: 
 	!   From:
 	! SIA_a = real(1.141, dp)
 	! SIA_b = real(-0.679, dp)
+	SIA_a = real(1, dp)
+	SIA_b = real(-0.5, dp)
 	!
-	!  To:
+	!  To; (just for sensitivity analysis and error checking, reverting back to above)
 	!  I think this will make sure all the doses go to zero dose kids until there are none left.
 	!
 	! SIA reach regression parameters for function SIAcov (amended 2020/05/31 to best case scenario)
-  SIA_a = real(1, dp)
-  SIA_b = real(0, dp)
+  ! SIA_a = real(1, dp)
+  ! SIA_b = real(0, dp)
 	!
 	! ----------------------------------------------------------------------------
 
