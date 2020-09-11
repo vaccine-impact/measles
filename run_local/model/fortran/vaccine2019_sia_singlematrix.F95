@@ -62,9 +62,9 @@ contains
 		! find what the SIA reach should be from the regression
 		! tempreach = a - b*m1cov
 		tempreach = a + b*m1cov
-		! if this number is greater than 1 set it to 0.98
+		! if this number is greater than 1 set it to 1
 		if(tempreach .gt. 1) then
-			tempreach = real(0.98, dp)
+			tempreach = real(1, dp)
 		endif
 
 		doses = scov*sum(pop(agefrom:ageto))
@@ -352,8 +352,10 @@ program measles
 	!   From:
 	! SIA_a = real(1.141, dp)
 	! SIA_b = real(-0.679, dp)
-	SIA_a = real(1, dp)
-	SIA_b = real(-0.5, dp)
+	! SIA_a = real(1, dp)
+	! SIA_b = real(-0.5, dp)
+  SIA_a = real(1.0644, dp)
+  SIA_b = real(-0.5983, dp)
 	!
 	!  To; (just for sensitivity analysis and error checking, reverting back to above)
 	!  I think this will make sure all the doses go to zero dose kids until there are none left.
