@@ -58,6 +58,8 @@ contains
 		real(dp), dimension(:), intent(in)  :: unvacR
 		real(dp), intent(out)  :: sia1
 		real(dp), intent(out)  :: sia2
+		real(dp)             :: zero_dose_children
+		real(dp)             :: non_zero_dose_children
 
 		! find what the SIA reach should be from the regression
 		! tempreach = a - b*m1cov
@@ -68,20 +70,40 @@ contains
 		endif
 
 		doses = scov*sum(pop(agefrom:ageto))
-		zeroreach = tempreach*(sum(susceptibles(agefrom:ageto)) &
-								+ sum(unvacI(agefrom:ageto)) &
-								+ sum(unvacR(agefrom:ageto)))
+		
+		! --------------------------------------------------------------------------
+		! zeroreach = tempreach*(sum(susceptibles(agefrom:ageto)) &
+		!						+ sum(unvacI(agefrom:ageto)) &
+		!						+ sum(unvacR(agefrom:ageto)))
+    !
+		! if( doses .le. zeroreach ) then
+		!   sia1 = scov
+		!	  sia2 = 0
+		! else
+		!   sia1 = tempreach
+		! 	sia2 = (doses-zeroreach)/(sum(pop(agefrom:ageto))&
+		!																 -(sum(susceptibles(agefrom:ageto)) &
+		!																		+ sum(unvacI(agefrom:ageto)) &
+		!																		+ sum(unvacR(agefrom:ageto))))
+		! endif
+		! --------------------------------------------------------------------------
 
-		if( doses .le. zeroreach ) then
-			sia1 = scov
-			sia2 = 0
-		else
-			sia1 = tempreach
-			sia2 = (doses-zeroreach)/(sum(pop(agefrom:ageto))&
-																		 -(sum(susceptibles(agefrom:ageto)) &
-																				+ sum(unvacI(agefrom:ageto)) &
-																				+ sum(unvacR(agefrom:ageto))))
-		endif
+    ! --------------------------------------------------------------------------
+    zero_dose_children = sum(susceptibles(agefrom:ageto)) &
+                       + sum(unvacI(agefrom:ageto)) &
+                       + sum(unvacR(agefrom:ageto))
+    
+    non_zero_dose_children = sum(pop(agefrom:ageto)) - zero_dose_children
+    
+    if ((doses * tempreach) .le. zero_dose_children) then
+      sia1 = (doses * tempreach) / zero_dose_children
+      sia2 = (doses * (1 - tempreach)) / non_zero_dose_children
+    else
+      sia1 = 1
+      sia2 = (doses - zero_dose_children) / non_zero_dose_children
+    endif
+    ! --------------------------------------------------------------------------
+
 
 		return
 

@@ -49,3 +49,4 @@ run_local/R/debug_plots/ETH_debug_model.txt
 run_local/R/debug_plots/ETH_debug_model_debug0.txt
 run_local/model/fortran/vaccine2019_sia_singlematrix_Aug2020.F95
 py/
+run_local/model/fortran/vaccine2019_sia_singlematrix.F95_14Sep2020
