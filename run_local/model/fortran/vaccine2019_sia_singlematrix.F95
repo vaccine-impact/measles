@@ -61,14 +61,21 @@ contains
 		real(dp)             :: zero_dose_children
 		real(dp)             :: non_zero_dose_children
 
-		! find what the SIA reach should be from the regression
+    ! --------------------------------------------------------------------------
+		! find what the SIA reach should be from the simple linear regression
 		! tempreach = a - b*m1cov
-		tempreach = a + b*m1cov
+		! tempreach = a + b*m1cov
 		! if this number is greater than 1 set it to 1
-		if(tempreach .gt. 1) then
-			tempreach = real(1, dp)
-		endif
-
+		! if(tempreach .gt. 1) then
+		!	  tempreach = real(1, dp)
+		! endif
+		! --------------------------------------------------------------------------
+		
+		! --------------------------------------------------------------------------
+		! find what the SIA reach should be from the weighted logistic regression
+		tempreach = exp(a + b * m1cov) / (1 + exp(a + b * m1cov))
+    ! --------------------------------------------------------------------------
+    
 		doses = scov*sum(pop(agefrom:ageto))
 		
 		! --------------------------------------------------------------------------
@@ -376,8 +383,13 @@ program measles
 	! SIA_b = real(-0.679, dp)
 	! SIA_a = real(1, dp)
 	! SIA_b = real(-0.5, dp)
-  SIA_a = real(1.0644, dp)
-  SIA_b = real(-0.5983, dp)
+  ! SIA_a = real(1.0644, dp)
+  ! SIA_b = real(-0.5983, dp)
+  
+  ! intercept and slope values from weighted logistic regression
+  SIA_a = real(2.485921, dp)
+  SIA_b = real(-2.074887, dp)
+  
 	!
 	!  To; (just for sensitivity analysis and error checking, reverting back to above)
 	!  I think this will make sure all the doses go to zero dose kids until there are none left.
