@@ -73,16 +73,42 @@ contains
 		
 		! --------------------------------------------------------------------------
 		! find what the SIA reach should be from the weighted logistic regression
-		tempreach = exp(a + b * m1cov) / (1 + exp(a + b * m1cov))
-    ! --------------------------------------------------------------------------
-    
+		! tempreach = exp(a + b * m1cov) / (1 + exp(a + b * m1cov))
+		tempreach = exp(a + b * scov) / (1 + exp(a + b * scov))
+		! --------------------------------------------------------------------------
+		
 		doses = scov*sum(pop(agefrom:ageto))
 		
 		! --------------------------------------------------------------------------
-		! zeroreach = tempreach*(sum(susceptibles(agefrom:ageto)) &
-		!						+ sum(unvacI(agefrom:ageto)) &
-		!						+ sum(unvacR(agefrom:ageto)))
-    !
+    zero_dose_children = sum(susceptibles(agefrom:ageto)) &
+                        + sum(unvacI(agefrom:ageto)) &
+                        + sum(unvacR(agefrom:ageto))
+                        
+    zeroreach = tempreach * zero_dose_children
+		
+		if( doses .le. zeroreach ) then
+		  sia1 = doses / zero_dose_children
+			sia2 = 0
+		else
+		  sia1 = tempreach
+		  sia2 = (doses-zeroreach)/(sum(pop(agefrom:ageto)) - zero_dose_children)
+		endif
+		
+		if( sia1 .gt. 1) then
+		  sia1 = 1
+		endif
+		
+		if( sia2 .gt. 1) then
+		  sia2 = 1
+		endif
+    ! --------------------------------------------------------------------------   
+    
+    
+    ! --------------------------------------------------------------------------
+    ! zeroreach = tempreach*(sum(susceptibles(agefrom:ageto)) &
+		!   				+ sum(unvacI(agefrom:ageto)) &
+		!					+ sum(unvacR(agefrom:ageto)))
+							
 		! if( doses .le. zeroreach ) then
 		!   sia1 = scov
 		!	  sia2 = 0
@@ -96,21 +122,20 @@ contains
 		! --------------------------------------------------------------------------
 
     ! --------------------------------------------------------------------------
-    zero_dose_children = sum(susceptibles(agefrom:ageto)) &
-                       + sum(unvacI(agefrom:ageto)) &
-                       + sum(unvacR(agefrom:ageto))
+    ! zero_dose_children = sum(susceptibles(agefrom:ageto)) &
+    !                    + sum(unvacI(agefrom:ageto)) &
+    !                    + sum(unvacR(agefrom:ageto))
     
-    non_zero_dose_children = sum(pop(agefrom:ageto)) - zero_dose_children
+    ! non_zero_dose_children = sum(pop(agefrom:ageto)) - zero_dose_children
     
-    if ((doses * tempreach) .le. zero_dose_children) then
-      sia1 = (doses * tempreach) / zero_dose_children
-      sia2 = (doses * (1 - tempreach)) / non_zero_dose_children
-    else
-      sia1 = 1
-      sia2 = (doses - zero_dose_children) / non_zero_dose_children
-    endif
+    ! if ((doses * tempreach) .le. zero_dose_children) then
+    !   sia1 = (doses * tempreach) / zero_dose_children
+    !   sia2 = (doses * (1 - tempreach)) / non_zero_dose_children
+    ! else
+    !   sia1 = 1
+    !   sia2 = (doses - zero_dose_children) / non_zero_dose_children
+    ! endif
     ! --------------------------------------------------------------------------
-
 
 		return
 
@@ -387,8 +412,12 @@ program measles
   ! SIA_b = real(-0.5983, dp)
   
   ! intercept and slope values from weighted logistic regression
-  SIA_a = real(2.485921, dp)
-  SIA_b = real(-2.074887, dp)
+  ! SIA_a = real(2.485921, dp)
+  ! SIA_b = real(-2.074887, dp)
+  
+  ! intercept and slope values from weighted logistic regression
+  SIA_a = real(-2.621733, dp)
+  SIA_b = real(5.238249, dp)
   
 	!
 	!  To; (just for sensitivity analysis and error checking, reverting back to above)
