@@ -1027,7 +1027,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
   # if larger than 1, country-specific model runs are distributed over specified number of clusters
   # note that model uses a lot of memory, so might not want to max out all clusters
   use_cluster  <- cluster_cores   # debug #
-  remove_files <- F
+  remove_files <- TRUE
   
   # may want to process results after generating all data. Note OUTPUT files are not removed if remove_files == TRUE and process_results == FALSE
   process_results <- F
