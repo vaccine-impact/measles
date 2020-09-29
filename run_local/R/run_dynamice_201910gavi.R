@@ -66,7 +66,7 @@ var <- list (
   countries                         = c ("all"),
   # countries                         = c("AFG", "BDI"),  # debug -- c("BGD", "ETH") / "all"
 
-  cluster_cores                     = 2,  # number of cores
+  cluster_cores                     = 3,  # number of cores
   psa                               = 0   # psa runs; 0 for single run
   )
 
@@ -214,9 +214,8 @@ for (index in first_scenario:last_scenario) {
 # base scenario for comparison
 base_scenario <- "no-vaccination"
 
-# TEMP comment
-# # ------------------------------------------------------------------------------
-# # diagnostic plots of vaccine coverage and burden estimates (cases, deaths, dalys)
+# ------------------------------------------------------------------------------
+# diagnostic plots of vaccine coverage and burden estimates (cases, deaths, dalys)
 diagnostic_plots (
   vaccine_coverage_folder    = var$vaccine_coverage_folder,
   coverage_prefix            = var$coverage_prefix,
@@ -235,7 +234,7 @@ diagnostic_plots (
   end_year                   = 2100,
   compare_plots              = FALSE
   )
-# # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 # return to source directory
