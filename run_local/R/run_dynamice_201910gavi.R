@@ -64,8 +64,8 @@ var <- list (
   # countries - specify iso3 codes to analyse only these countries
   #             or set it to "all" to analyse all included countries
   countries                         = c ("all"),
-  # countries                         = c("BGD"),  # debug -- c("BGD", "ETH") / "all"
-  
+  # countries                         = c("AFG", "BDI"),  # debug -- c("BGD", "ETH") / "all"
+
   cluster_cores                     = 3,  # number of cores
   psa                               = 0   # psa runs; 0 for single run
   )
@@ -83,13 +83,14 @@ scenarios <- c("campaign-only-bestcase",  # 1  SIAs only
                "no-vaccination",          # 9  no vaccination (set vaccination and using_sia to 0)
                "stop"                     # 10 MCV1 & MCV2 and SIAs
                )
+
 # ------------------------------------------------------------------------------
 # specify scenarios to run
 first_scenario <- 1
 last_scenario  <- length (scenarios)
 # debug
-# first_scenario <- 5
-# last_scenario  <- 5
+# first_scenario <- 1
+# last_scenario  <- 1
 # ------------------------------------------------------------------------------
 
 # set SIAs and vaccination parameters for each scenario to minimize errors for running
@@ -178,7 +179,9 @@ for (index in first_scenario:last_scenario) {
     cluster_cores              = var$cluster_cores,
     psa                        = var$psa,
     vaccination                = set.vaccination [index],
-    using_sia                  = set.sia         [index]
+    using_sia                  = set.sia         [index],
+    measles_model              = "vaccine2019_sia_singlematrix.exe",
+    debug_model                = FALSE
     )
   # ----------------------------------------------------------------------------
   
@@ -211,9 +214,8 @@ for (index in first_scenario:last_scenario) {
 # base scenario for comparison
 base_scenario <- "no-vaccination"
 
-# TEMP comment
-# # ------------------------------------------------------------------------------
-# # diagnostic plots of vaccine coverage and burden estimates (cases, deaths, dalys)
+# ------------------------------------------------------------------------------
+# diagnostic plots of vaccine coverage and burden estimates (cases, deaths, dalys)
 diagnostic_plots (
   vaccine_coverage_folder    = var$vaccine_coverage_folder,
   coverage_prefix            = var$coverage_prefix,
@@ -232,7 +234,7 @@ diagnostic_plots (
   end_year                   = 2100,
   compare_plots              = FALSE
   )
-# # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 # return to source directory
