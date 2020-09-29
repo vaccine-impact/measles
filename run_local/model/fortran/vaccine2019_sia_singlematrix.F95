@@ -349,15 +349,26 @@ program measles
 	read(get_debug_relative,*) debug_relative
 
 	tmax = uu*tstep
+	
+	! ----------------------------------------------------------------------------
 	uu = uu + 1
 
-	allocate(coverage(uu))
-	allocate(t_sia(uu))
-	allocate(t_run(uu))
-	allocate(sia(uu))
-	allocate(a0(uu))
-	allocate(a1(uu))
-
+	! allocate(coverage(uu))
+	! allocate(t_sia(uu))
+	! allocate(t_run(uu))
+	! allocate(sia(uu))
+	! allocate(a0(uu))
+	! allocate(a1(uu))
+	
+	! memory allocation should be large enough to handle multiple SIAs over multiple years
+	allocate(coverage(uu*2))
+	allocate(t_sia(uu*2))
+	allocate(t_run(uu*2))
+	allocate(sia(uu*2))
+	allocate(a0(uu*2))
+	allocate(a1(uu*2))
+	! ----------------------------------------------------------------------------
+	
 	allocate(M(amax+1,tmax+1))
 	allocate(S(amax+1,tmax+1))
 	allocate(I(amax+1,tmax+1))
