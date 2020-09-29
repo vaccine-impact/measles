@@ -65,7 +65,7 @@ var <- list (
   # countries - specify iso3 codes to analyse only these countries
   #             or set it to "all" to analyse all included countries
   countries                         = c ("all"),
-  # countries                         = c("BGD"),  # debug -- c("BGD", "ETH") / "all"
+  # countries                         = c("NGA"),  # debug -- c("BGD", "ETH") / "all"
   
   cluster_cores                     = 2,  # number of cores
   psa                               = 0   # psa runs; 0 for single run
@@ -86,8 +86,8 @@ scenarios <- c("counterfactual-bau-scenario1",
                )
 
 # debug
-# scenarios <- c("counterfactual-bau-scenario1", 
-#                "disruption-scenario11-0sia")
+# scenarios <- c("counterfactual-bau-scenario1") 
+# #              , "disruption-scenario11-0sia")
 
 # create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full ()
@@ -139,7 +139,9 @@ for (index in 1:length(scenarios)) {
     cluster_cores              = var$cluster_cores,
     psa                        = var$psa,
     vaccination                = 2,
-    using_sia                  = 1 
+    using_sia                  = 1,
+    measles_model              = "vaccine2019_sia_singlematrix.exe",
+    debug_model                = FALSE 
     )
   # ----------------------------------------------------------------------------
   

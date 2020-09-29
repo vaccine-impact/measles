@@ -58,29 +58,84 @@ contains
 		real(dp), dimension(:), intent(in)  :: unvacR
 		real(dp), intent(out)  :: sia1
 		real(dp), intent(out)  :: sia2
+		real(dp)             :: zero_dose_children
+		real(dp)             :: non_zero_dose_children
 
-		! find what the SIA reach should be from the regression
-		tempreach = a - b*m1cov
-		! if this number is greater than 1 set it to 0.98
-		if(tempreach .gt. 1) then
-			tempreach = real(0.98, dp)
-		endif
-
+    ! --------------------------------------------------------------------------
+		! find what the SIA reach should be from the simple linear regression
+		! tempreach = a - b*m1cov
+		! tempreach = a + b*m1cov
+		! if this number is greater than 1 set it to 1
+		! if(tempreach .gt. 1) then
+		!	  tempreach = real(1, dp)
+		! endif
+		! --------------------------------------------------------------------------
+		
+		! --------------------------------------------------------------------------
+		! find what the SIA reach should be from the weighted logistic regression
+		! tempreach = exp(a + b * m1cov) / (1 + exp(a + b * m1cov))
+		tempreach = exp(a + b * scov) / (1 + exp(a + b * scov))
+		! --------------------------------------------------------------------------
+		
 		doses = scov*sum(pop(agefrom:ageto))
-		zeroreach = tempreach*(sum(susceptibles(agefrom:ageto)) &
-								+ sum(unvacI(agefrom:ageto)) &
-								+ sum(unvacR(agefrom:ageto)))
-
+		
+		! --------------------------------------------------------------------------
+    zero_dose_children = sum(susceptibles(agefrom:ageto)) &
+                        + sum(unvacI(agefrom:ageto)) &
+                        + sum(unvacR(agefrom:ageto))
+                        
+    zeroreach = tempreach * zero_dose_children
+		
 		if( doses .le. zeroreach ) then
-			sia1 = scov
+		  sia1 = doses / zero_dose_children
 			sia2 = 0
 		else
-			sia1 = tempreach
-			sia2 = (doses-zeroreach)/(sum(pop(agefrom:ageto))&
-																		 -(sum(susceptibles(agefrom:ageto)) &
-																				+ sum(unvacI(agefrom:ageto)) &
-																				+ sum(unvacR(agefrom:ageto))))
+		  sia1 = tempreach
+		  sia2 = (doses-zeroreach)/(sum(pop(agefrom:ageto)) - zero_dose_children)
 		endif
+		
+		if( sia1 .gt. 1) then
+		  sia1 = 1
+		endif
+		
+		if( sia2 .gt. 1) then
+		  sia2 = 1
+		endif
+    ! --------------------------------------------------------------------------   
+    
+    
+    ! --------------------------------------------------------------------------
+    ! zeroreach = tempreach*(sum(susceptibles(agefrom:ageto)) &
+		!   				+ sum(unvacI(agefrom:ageto)) &
+		!					+ sum(unvacR(agefrom:ageto)))
+							
+		! if( doses .le. zeroreach ) then
+		!   sia1 = scov
+		!	  sia2 = 0
+		! else
+		!   sia1 = tempreach
+		! 	sia2 = (doses-zeroreach)/(sum(pop(agefrom:ageto))&
+		!																 -(sum(susceptibles(agefrom:ageto)) &
+		!																		+ sum(unvacI(agefrom:ageto)) &
+		!																		+ sum(unvacR(agefrom:ageto))))
+		! endif
+		! --------------------------------------------------------------------------
+
+    ! --------------------------------------------------------------------------
+    ! zero_dose_children = sum(susceptibles(agefrom:ageto)) &
+    !                    + sum(unvacI(agefrom:ageto)) &
+    !                    + sum(unvacR(agefrom:ageto))
+    
+    ! non_zero_dose_children = sum(pop(agefrom:ageto)) - zero_dose_children
+    
+    ! if ((doses * tempreach) .le. zero_dose_children) then
+    !   sia1 = (doses * tempreach) / zero_dose_children
+    !   sia2 = (doses * (1 - tempreach)) / non_zero_dose_children
+    ! else
+    !   sia1 = 1
+    !   sia2 = (doses - zero_dose_children) / non_zero_dose_children
+    ! endif
+    ! --------------------------------------------------------------------------
 
 		return
 
@@ -294,15 +349,26 @@ program measles
 	read(get_debug_relative,*) debug_relative
 
 	tmax = uu*tstep
+	
+	! ----------------------------------------------------------------------------
 	uu = uu + 1
 
-	allocate(coverage(uu))
-	allocate(t_sia(uu))
-	allocate(t_run(uu))
-	allocate(sia(uu))
-	allocate(a0(uu))
-	allocate(a1(uu))
-
+	! allocate(coverage(uu))
+	! allocate(t_sia(uu))
+	! allocate(t_run(uu))
+	! allocate(sia(uu))
+	! allocate(a0(uu))
+	! allocate(a1(uu))
+	
+	! memory allocation should be large enough to handle multiple SIAs over multiple years
+	allocate(coverage(uu*2))
+	allocate(t_sia(uu*2))
+	allocate(t_run(uu*2))
+	allocate(sia(uu*2))
+	allocate(a0(uu*2))
+	allocate(a1(uu*2))
+	! ----------------------------------------------------------------------------
+	
 	allocate(M(amax+1,tmax+1))
 	allocate(S(amax+1,tmax+1))
 	allocate(I(amax+1,tmax+1))
@@ -342,20 +408,35 @@ program measles
 
 	!vaccine efficacy parameters for function vaceffByAge
 	ve_a = real(0.64598,dp)
-	ve_b = real(0.00148,dp)
+	ve_b = real(0.01485,dp)
+	!ve_b = real(0.00148,dp)
 
   ! ----------------------------------------------------------------------------
-	! SIA reach regression parameters for function SIAcov
+	! SIA reach regression parameters for function SIAcov 
+  ! From Allison's paper: 
 	!   From:
 	! SIA_a = real(1.141, dp)
 	! SIA_b = real(-0.679, dp)
+	! SIA_a = real(1, dp)
+	! SIA_b = real(-0.5, dp)
+  ! SIA_a = real(1.0644, dp)
+  ! SIA_b = real(-0.5983, dp)
+  
+  ! intercept and slope values from weighted logistic regression
+  ! SIA_a = real(2.485921, dp)
+  ! SIA_b = real(-2.074887, dp)
+  
+  ! intercept and slope values from weighted logistic regression
+  SIA_a = real(-2.621733, dp)
+  SIA_b = real(5.238249, dp)
+  
 	!
-	!  To:
+	!  To; (just for sensitivity analysis and error checking, reverting back to above)
 	!  I think this will make sure all the doses go to zero dose kids until there are none left.
 	!
 	! SIA reach regression parameters for function SIAcov (amended 2020/05/31 to best case scenario)
-  SIA_a = real(1, dp)
-  SIA_b = real(0, dp)
+  ! SIA_a = real(1, dp)
+  ! SIA_b = real(0, dp)
 	!
 	! ----------------------------------------------------------------------------
 
@@ -1080,8 +1161,10 @@ program measles
 								-agerate_annual*V3R(a,hh)		&
 								+agerate_annual*V3R(a-1,hh)
 			1927 continue
-			!loop through age-groups, 156 weeks until 105 weeks (3yo)
-			do 19167 a =(156),105,-1
+			!old: loop through age-groups, 156 weeks until 105 weeks (3yo)
+			!do 19167 a =(156),105,-1
+			!update: loop through age-groups, 156 weeks until 73 weeks
+			do 19167 a =(156),73,-1
 				!M(a,hh)		=M(a,hh)	-M(a,hh)*52/real(tstep) 	+M(a-1,hh)*52/real(tstep)
 				!S(a,hh)		=S(a,hh) 	-S(a,hh)*52/real(tstep) 	+(1-cov(a-1))*S(a-1,hh)*52/real(tstep)
 
@@ -1149,8 +1232,10 @@ program measles
 								-agerate_week*V3R(a,hh)										&
 								+agerate_week*V3R(a-1,hh)
 			19167 continue
-			!those that are 104weeks (exactly 2yo)
-			a=104
+			!old: those that are 104weeks (exactly 2yo)
+			!a=104
+			!update: those that are 72 weeks (15-18 months)
+			a=72			
 			!calculate new vaccinations
 			!M(a,hh)		=M(a,hh)	-M(a,hh)*52/real(tstep) 	+M(a-1,hh)*52/real(tstep)
 			!S(a,hh)		=S(a,hh)	-S(a,hh)*52/real(tstep)		+(1-cov2)*(1-cov(a-1))*S(a-1,hh)*52/real(tstep)
@@ -1235,8 +1320,10 @@ program measles
 							+agerate_week*take_inc*cov2*V2S(a-1,hh)										&
 							+agerate_week*cov2*V2R(a-1,hh)												&
 							+agerate_week*V3R(a-1,hh)
-			!loop through age-groups 103-55 weeks old
-			do 1967 a=103,55,-1
+			!old: loop through age-groups 103-55 weeks old
+			!do 1967 a=103,55,-1
+			!loop through age-groups 71-55 weeks old
+			do 1967 a=71,55,-1
 				!M(a,hh)		=M(a,hh)	-M(a,hh)*52/real(tstep) 		+(1-cov(a-1))*M(a-1,hh)*52/real(tstep)
 				!S(a,hh)		=S(a,hh) 	-S(a,hh)*52/real(tstep) 		+(1-cov(a-1))*S(a-1,hh)*52/real(tstep)
 				M(a,hh)		=	M(a,hh-1)                                                        	&

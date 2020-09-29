@@ -97,6 +97,22 @@ create_vaccine_coverage_routine_sia <- function (vaccine_coverage_folder    = ""
   # only select campaigns
   sia2 <- sia [activity_type == "campaign" & ( (!is.na(target) & target != 0) | (!is.na(coverage) ) ), ]
   
+  # ----------------------------------------------------------------------------
+  # set start age to fraction of a year for campaigns starting at ages 
+  # less than 1 year, that is, 6 months, 9 months, etc will become 0.5, 0.75, etc
+  # If age_first = 1 and age_range_verbatim = default or other text, then set start age to 0.5 (6 months).
+
+  sia2 [                 , age_first := as.double (age_first)]
+  # sia2 [age_first == 1, age_first := as.double (str_extract (age_range_verbatim, "\\d+")) / 12]
+  # age_range_verbatim "1-14 Y" should not interpreted as 1 month
+  sia2 [age_first == 1 & (str_extract (age_range_verbatim, "\\d+") != "1"), age_first := as.double (str_extract (age_range_verbatim, "\\d+")) / 12]
+  sia2 [is.na (age_first), age_first := 0.5]
+  
+  sia2 [age_first == 0,    age_first := as.double (str_extract (age_range_verbatim, "\\d+")) / 12]
+  sia2 [is.na (age_first), age_first := 0.5]
+  # ----------------------------------------------------------------------------
+
+  
   # remove unused columns
   discard.cols <- c ("scenario", "set_name", "gavi_support", "activity_type")
   sia2 <- sia2 [, .SD, .SDcols = -discard.cols]
@@ -908,14 +924,16 @@ runScenario <- function (vaccine_coverage_folder    = "",
                          scenario_name,
                          scenario_number,
                          vaccine_coverage_subfolder = "",
-                         burden_template,                 # burden template file
-                         burden_estimate_folder,          # burden estimate folder  
-                         group_name,                      # modelling group name
+                         burden_template,                   # burden template file
+                         burden_estimate_folder,            # burden estimate folder  
+                         group_name,                        # modelling group name
                          countries                  = "all", 
                          cluster_cores              = 1,
-                         psa                        = 0,  # psa runs; 0 for single run
+                         psa                        = 0,    # psa runs; 0 for single run
                          vaccination,  # Whether children are vaccinated. 0: No vaccination; 1: Only MCV1; 2: MCV1 and MCV2
-                         using_sia     # Whether supplementary immunization campaigns are used. 0: no SIA; 1: with SIA
+                         using_sia,    # Whether supplementary immunization campaigns are used. 0: no SIA; 1: with SIA
+                         measles_model,                     # measles model
+                         debug_model                = FALSE # debug model (T/F)
 ) {
   
   # changes 2019: 
@@ -1001,14 +1019,15 @@ runScenario <- function (vaccine_coverage_folder    = "",
   # filename of compiled fortran-model (in ./model/compiled/)
   # ----------------------------------------------------------------------------
   # measles_model <- "vaccine2019_sia_singlematrix" # change this to reflect the right version of the fortran code
-  measles_model <- "vaccine2019_sia_singlematrix.exe" # change this to reflect the right version of the fortran code
+  # measles_model <- "vaccine2019_sia_singlematrix.exe" # change this to reflect the right version of the fortran code
+  measles_model <- measles_model
   # ----------------------------------------------------------------------------
   
   # number of clusters to use
   # if larger than 1, country-specific model runs are distributed over specified number of clusters
   # note that model uses a lot of memory, so might not want to max out all clusters
   use_cluster  <- cluster_cores   # debug #
-  remove_files <- T
+  remove_files <- F
   
   # may want to process results after generating all data. Note OUTPUT files are not removed if remove_files == TRUE and process_results == FALSE
   process_results <- F
@@ -1023,8 +1042,8 @@ runScenario <- function (vaccine_coverage_folder    = "",
   debug_country		  <- "*"			#ISO3 codes of country to debug, * to debug all countries
   debug_spinup		  <- FALSE		#TRUE/FALSE: If true, generate data for spin-up period of model
   
-  # debug_model       <- TRUE
-  debug_model			  <- FALSE		#TRUE/FALSE: If true: generate data for period after spin-up
+  debug_model       <- debug_model
+  # debug_model			  <- FALSE		#TRUE/FALSE: If true: generate data for period after spin-up
   
   debug_compartments<- 1
   # debug_compartments<- 0			  #TRUE/FALSE: If true: output size of each compartment. If false: output number of cases. If 2: debug vaccinated
