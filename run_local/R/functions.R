@@ -861,8 +861,9 @@ runCountry <- function (
     
     dat_cfr <- cfr[country_code == iso3, CFR]
     if(psa > 0){
-      dat_cfr <- dat_cfr * as.numeric(psa_var[r,c("mortality_input")])
+      dat_cfr <- dat_cfr * as.numeric(psa_var [r, c("mortality_input")])
     }
+    
     # deaths for those under 5: CFR/100 * cases
     # deaths for those over 5 and under 10: CFR/200 * cases
     # deaths for those over 10: 0
@@ -1198,7 +1199,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
   # --------------------------------------------------------------------------
   # if psa variables file does not exist, then create psa variables file
   if (psa > 0) {
-    if (file.exists(paste0 ("input/", data_psa))){
+    if (file.exists (paste0 ("input/", data_psa))) {
       
       # read csv if file already exists
       psa_var <- fread (paste0 ("input/", data_psa))
@@ -1218,17 +1219,24 @@ runScenario <- function (vaccine_coverage_folder    = "",
         mortality_input = rep (NA, psa)
       )
       
-      for(t in 1:3){
+      for(t in 1:3) {
+        
         # use 5% difference in take
-        tk <- runif(n=psa, min=(take[t]*0.95), max=(take[t]*1.05))
+        tk <- runif (n   = psa, 
+                     min = (take[t] * 0.95), 
+                     max = (take[t] * 1.05))
+        
         # vaccine efficacy is bounded between 0 and 1
         tk [which(tk < 0)] <- 0
         tk [which(tk > 1)] <- 1
-        psa_var[,paste0("take",t,"_input")] <- tk
+        
+        psa_var [, paste0 ("take", t, "_input")] <- tk
       }
       
       # use 25% difference in mortality, will be multiplied by CFR in each country
-      psa_var [,"mortality_input"] <- runif(n=psa,min=0.75,max=1.25)
+      psa_var [, "mortality_input"] <- runif (n  = psa,
+                                             min = 0.75,
+                                             max = 1.25)
       
       fwrite (psa_var, paste0 ("input/", data_psa))
     }
@@ -2294,6 +2302,127 @@ create_campaign_vaccination_coverage_file <- function (campaign_only_vaccination
   return ()
   
 } # end of function -- create_campaign_vaccination_coverage_file
+# ------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+# create latin hyper cube sample of input parameters for 
+# probabilistic sensitivity analysis
+# ------------------------------------------------------------------------------
+CreatePSA_Data <- function (psa             = 0, 
+                            seed_state      = 1,
+                            psadat_filename = NA) {
+  
+  # set seed for reproducibility
+  set.seed (seed = seed_state)  
+  
+  # ----------------------------------------------------------------------------
+  # create data table to store psa values 
+  # input parameters for sensitivity analysis
+  
+  # run_id
+  psadat <- data.table (run_id = c (1:psa))  
+  
+  # initialise parameters
+  
+  # intercept of regression function for vaccine efficacy by age
+  psadat [, vaceffbyage_a := 0] 
+  
+  # slope of regression function for vaccine efficacy by age
+  psadat [, vaceffbyage_b := 0]
+  
+  # vaccine efficacy (dose 2)
+  psadat [, take3_input := 0]
+  
+  # proportional change in case fatality rate
+  psadat [, mortality_input := 0]
+  # ----------------------------------------------------------------------------
+  
+  # construct a random Latin hypercube design
+  cube <- randomLHS (n = psa, 
+                     k = (ncol (psadat) - 1)
+  )
+  
+  # ----------------------------------------------------------------------------
+  # ! vaccine efficacy parameters for function vaceffByAge (in the fortran code)
+  # ve_a = real(0.64598,dp)
+  # ve_b = real(0.01485,dp)
+  
+  # Coefficients:
+  #                   Estimate  Std. Error t value Pr(>|t|)    
+  # (Intercept)       0.645985   0.058727  11.000 3.49e-15 ***
+  # age_at_first_dose 0.014853   0.004969   2.989  0.00426 ** 
+  #
+  # (Intercept)      : 0.645985 (95% CI: 0.5281395,   0.7638297)
+  # age_at_first_dose: 0.014853 (95% CI: 0.004882493, 0.02482367)
+  
+  # intercept of regression function for vaccine efficacy by age
+  mean_intercept <- 0.645985
+  low_95CI       <- 0.5281395
+  sd_intercept   <- (mean_intercept - low_95CI) / 1.96
+  
+  psadat [, vaceffbyage_a := qtruncnorm (cube [, 1], 
+                                         a    = (mean_intercept - 3 * sd_intercept), 
+                                         b    = (mean_intercept + 3 * sd_intercept), 
+                                         mean = mean_intercept, 
+                                         sd   = sd_intercept 
+  ) ]
+  
+  # slope of regression function for vaccine efficacy by age
+  mean_slope <- 0.014853
+  low_95CI   <- 0.004882493
+  sd_slope   <- (mean_slope - low_95CI) / 1.96
+  
+  psadat [, vaceffbyage_b := qtruncnorm (cube [, 2], 
+                                         # a    = (mean_slope - 3 * sd_slope), == -0.0004079801
+                                         a    = 0,
+                                         b    = (mean_slope + 3 * sd_slope), 
+                                         mean = mean_slope, 
+                                         sd   = sd_slope
+  ) ]
+  # ----------------------------------------------------------------------------
+  
+  # vaccine efficacy (dose 2)
+  # mean 98% -- +- ~ 2%
+  psadat [, take3_input := qtruncnorm (cube [, 3], 
+                                       a    = (0.98 - 0.02), 
+                                       b    = (0.98 + 0.02), 
+                                       mean = 0.98, 
+                                       sd   = (0.02/3) 
+  ) ]
+  
+  
+  # proportional change in case fatality rate
+  # truncated lognormal distribution for up to 25% change
+  psadat [, mortality_input := qtruncnorm (cube [, 4], 
+                                           a    = (1 - 0.25), 
+                                           b    = (1 + 0.25), 
+                                           mean = 1, 
+                                           sd   = (0.25/3) 
+  ) ]
+  
+  # rename columns of vaceffbyage_a to take1_input and vaceffbyage_b to take2_input
+  # this is done take1_input and take2_input were used earlier in the fortran model
+  # which meant: take1_input # vaccine efficacy (dose 1, before age 1)
+  #              take2_input # vaccine efficacy (dose 1, after age 1)
+  # In this psa data table and file: take1 refers to vaceffbyage_a (intercept)
+  #                                  take1 refers to vaceffbyage_b (slope)
+  setnames(psadat, 
+           old = c("vaceffbyage_a", "vaceffbyage_b"), 
+           new = c("take1_input",   "take2_input")
+  )
+  
+  
+  # save psa data file, if file name is provided
+  if (!is.na (psadat_filename)) {
+    fwrite (x    = psadat, 
+            file = psadat_filename)
+  }
+  
+  # return psa data table
+  return (psadat)
+  
+} # end of function -- CreatePSA_Data
 # ------------------------------------------------------------------------------
 
 

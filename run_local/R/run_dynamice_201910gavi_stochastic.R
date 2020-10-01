@@ -63,11 +63,11 @@ var <- list (
   
   # countries - specify iso3 codes to analyse only these countries
   #             or set it to "all" to analyse all included countries
-  countries                         = c ("all"),
-  # countries                         = c("AFG", "ETH"),  # debug -- c("BGD", "ETH") / "all"
+  # countries                         = c ("all"),
+  countries                         = c("AFG"),  # debug -- c("BGD", "ETH") / "all"
 
   cluster_cores                     = 2,  # number of cores
-  psa                               = 0   # psa runs; 0 for single run
+  psa                               = 2   # psa runs; 0 for single run
   )
 
 # ------------------------------------------------------------------------------
@@ -89,8 +89,8 @@ scenarios <- c("campaign-only-bestcase",  # 1  SIAs only
 first_scenario <- 1
 last_scenario  <- length (scenarios)
 # debug
-# first_scenario <- 1
-# last_scenario  <- 1
+first_scenario <- 1
+last_scenario  <- 1
 # ------------------------------------------------------------------------------
 
 # set SIAs and vaccination parameters for each scenario to minimize errors for running
@@ -216,24 +216,26 @@ base_scenario <- "no-vaccination"
 
 # ------------------------------------------------------------------------------
 # diagnostic plots of vaccine coverage and burden estimates (cases, deaths, dalys)
-diagnostic_plots (
-  vaccine_coverage_folder    = var$vaccine_coverage_folder,
-  coverage_prefix            = var$coverage_prefix,
-  touchstone                 = var$touchstone,
-  antigen                    = var$antigen,
-  scenarios                  = scenarios [first_scenario:last_scenario],
-  base_scenario              = base_scenario,
-  burden_estimate_folder     = var$central_burden_estimate_folder,
-  plot_folder                = var$plot_folder,
-  group_name                 = var$group_name,
-  countries                  = var$countries,
-  # cfr_options                = c("Wolfson", "Portnoy"),
-  cfr_options                = c ("Portnoy"),
-  psa                        = var$psa,
-  start_year                 = 2000,
-  end_year                   = 2100,
-  compare_plots              = FALSE
+if (var$psa == 0) {
+  diagnostic_plots (
+    vaccine_coverage_folder    = var$vaccine_coverage_folder,
+    coverage_prefix            = var$coverage_prefix,
+    touchstone                 = var$touchstone,
+    antigen                    = var$antigen,
+    scenarios                  = scenarios [first_scenario:last_scenario],
+    base_scenario              = base_scenario,
+    burden_estimate_folder     = var$central_burden_estimate_folder,
+    plot_folder                = var$plot_folder,
+    group_name                 = var$group_name,
+    countries                  = var$countries,
+    # cfr_options                = c("Wolfson", "Portnoy"),
+    cfr_options                = c ("Portnoy"),
+    psa                        = var$psa,
+    start_year                 = 2000,
+    end_year                   = 2100,
+    compare_plots              = FALSE
   )
+}
 # ------------------------------------------------------------------------------
 
 

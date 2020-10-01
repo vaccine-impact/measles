@@ -216,24 +216,26 @@ base_scenario <- "no-vaccination"
 
 # ------------------------------------------------------------------------------
 # diagnostic plots of vaccine coverage and burden estimates (cases, deaths, dalys)
-diagnostic_plots (
-  vaccine_coverage_folder    = var$vaccine_coverage_folder,
-  coverage_prefix            = var$coverage_prefix,
-  touchstone                 = var$touchstone,
-  antigen                    = var$antigen,
-  scenarios                  = scenarios [first_scenario:last_scenario],
-  base_scenario              = base_scenario,
-  burden_estimate_folder     = var$central_burden_estimate_folder,
-  plot_folder                = var$plot_folder,
-  group_name                 = var$group_name,
-  countries                  = var$countries,
-  # cfr_options                = c("Wolfson", "Portnoy"),
-  cfr_options                = c ("Portnoy"),
-  psa                        = var$psa,
-  start_year                 = 2000,
-  end_year                   = 2100,
-  compare_plots              = FALSE
+if (var$psa == 0) {
+  diagnostic_plots (
+    vaccine_coverage_folder    = var$vaccine_coverage_folder,
+    coverage_prefix            = var$coverage_prefix,
+    touchstone                 = var$touchstone,
+    antigen                    = var$antigen,
+    scenarios                  = scenarios [first_scenario:last_scenario],
+    base_scenario              = base_scenario,
+    burden_estimate_folder     = var$central_burden_estimate_folder,
+    plot_folder                = var$plot_folder,
+    group_name                 = var$group_name,
+    countries                  = var$countries,
+    # cfr_options                = c("Wolfson", "Portnoy"),
+    cfr_options                = c ("Portnoy"),
+    psa                        = var$psa,
+    start_year                 = 2000,
+    end_year                   = 2100,
+    compare_plots              = FALSE
   )
+}
 # ------------------------------------------------------------------------------
 
 
