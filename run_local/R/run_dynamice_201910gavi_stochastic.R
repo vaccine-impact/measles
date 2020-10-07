@@ -17,6 +17,8 @@ library (doParallel)
 library (foreach)
 library (countrycode)
 library (ggpubr)
+library (lhs) 
+library (truncnorm)
 
 # remove all objects from workspace
 rm (list = ls ())
@@ -64,7 +66,7 @@ var <- list (
   # countries - specify iso3 codes to analyse only these countries
   #             or set it to "all" to analyse all included countries
   # countries                         = c ("all"),
-  countries                         = c("AFG"),  # debug -- c("BGD", "ETH") / "all"
+  countries                         = c("IND"),  # debug -- c("BGD", "ETH") / "all"
 
   cluster_cores                     = 2,  # number of cores
   psa                               = 2   # psa runs; 0 for single run
@@ -89,8 +91,8 @@ scenarios <- c("campaign-only-bestcase",  # 1  SIAs only
 first_scenario <- 1
 last_scenario  <- length (scenarios)
 # debug
-first_scenario <- 1
-last_scenario  <- 1
+first_scenario <- 7
+last_scenario  <- 7
 # ------------------------------------------------------------------------------
 
 # set SIAs and vaccination parameters for each scenario to minimize errors for running
@@ -131,6 +133,12 @@ create_campaign_vaccination_coverage_file (
 # create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full ()
 
+# create latin hyper cube sample of input parameters for 
+# probabilistic sensitivity analysis
+psadat <- CreatePSA_Data (psa             = var$psa, 
+                          seed_state      = 1,
+                          psadat_filename = "input/psa_variables.csv")
+
 # loop through scenarios
 for (index in first_scenario:last_scenario) {
 
@@ -160,6 +168,13 @@ for (index in first_scenario:last_scenario) {
   # ----------------------------------------------------------------------------
   
   # ----------------------------------------------------------------------------
+  # burden_estimate_folder (central or stochastic)
+  if (var$psa == 0) {
+    burden_estimate_folder <- var$central_burden_estimate_folder
+  } else {
+    burden_estimate_folder <- var$stochastic_burden_estimate_folder
+  }
+  
   # estimate cases
   #
   # run scenario -- get burden estimates -- primarily cases
@@ -173,7 +188,7 @@ for (index in first_scenario:last_scenario) {
     scenario_number            = scenario_number,
     vaccine_coverage_subfolder = var$vaccine_coverage_subfolder,
     burden_template            = var$burden_template,
-    burden_estimate_folder     = var$central_burden_estimate_folder,
+    burden_estimate_folder     = burden_estimate_folder,
     group_name                 = var$group_name,
     countries                  = var$countries,
     cluster_cores              = var$cluster_cores,
@@ -201,9 +216,10 @@ for (index in first_scenario:last_scenario) {
   #   append cfr_option to results file
   estimateDeathsDalys (cfr_option             = "Portnoy",
                        burden_estimate_file   = burden_estimate_file,
-                       burden_estimate_folder = var$central_burden_estimate_folder,
+                       burden_estimate_folder = burden_estimate_folder,
                        vimc_scenario          = scenario_name,
-                       portnoy_scenario       = "s6"  # portnoy scenario 6
+                       portnoy_scenario       = "s6",  # portnoy scenario 6
+                       psa                    = var$psa
                        )
   # ----------------------------------------------------------------------------
 
@@ -237,7 +253,6 @@ if (var$psa == 0) {
   )
 }
 # ------------------------------------------------------------------------------
-
 
 # return to source directory
 setwd (source_wd)

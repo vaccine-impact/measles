@@ -407,9 +407,8 @@ program measles
 	newinfect			=	real(0, dp)
 
 	!vaccine efficacy parameters for function vaceffByAge
-	ve_a = real(0.64598,dp)
-	ve_b = real(0.01485,dp)
-	!ve_b = real(0.00148,dp)
+	!ve_a = real(0.64598,dp)
+	!ve_b = real(0.01485,dp)
 
   ! ----------------------------------------------------------------------------
 	! SIA reach regression parameters for function SIAcov 
@@ -522,6 +521,10 @@ program measles
 		100 continue
 		temp=sum(pop)
 	close(1999)
+	
+	!vaccine efficacy parameters for function vaceffByAge
+	ve_a = take1
+	ve_b = take2
 	
 	!dont need to do this in the loop anymore
 	!contact rates

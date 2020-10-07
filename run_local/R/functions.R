@@ -894,12 +894,7 @@ runCountry <- function (
     }
     
     cases[, "country_code"] <- iso3
-    if(psa > 0){
-      cases[, "run_id"] <- r
-      cases <- cases[, c("run_id", "year", "age", "country_code", "cohort_size", "deaths", "cases", "dalys"), with=F]
-    } else {
-      cases <- cases[, c("year", "age", "country_code", "cohort_size", "deaths", "cases", "dalys"), with=F]
-    }
+    cases <- cases[, c("year", "age", "country_code", "cohort_size", "deaths", "cases", "dalys"), with=F]
     
     setorder (cases, year, age)
     
@@ -1010,7 +1005,14 @@ runScenario <- function (vaccine_coverage_folder    = "",
   sia.method	<- 1				             # 1 = variable take; 2 = variable degree
   dinf		    <- 14				             # duration of infection (days)
   amplitude 	<- 0.05			             # amplitude for seasonality
-  take 		    <- c (0.85, 0.95, 0.98)  # vaccine efficacy for take1 (take dose 1, before age 1), take2 (dose 1, after age 1) & take3 (dose 2). Note that dose2 only has an effect if vaccine==2.
+  
+  # take 		    <- c (0.85, 0.95, 0.98)  # vaccine efficacy for take1 (take dose 1, before age 1), take2 (dose 1, after age 1) & take3 (dose 2). Note that dose2 only has an effect if vaccine==2.
+  # used to mean before: take [1] # vaccine efficacy (dose 1, before age 1)
+  #                      take [2] # vaccine efficacy (dose 1, after age 1)
+  # updated meaning:     take [1] refers to vaceffbyage_a (intercept)
+  #                      take [2] refers to vaceffbyage_b (slope)
+  take 		    <- c (0.64598, 0.01485, 0.98)
+  
   degree 		  <- c (0.85, 0.95, 0.98)  # vaccine efficacy for degree1 (degree dose 1, before age 1), degree2 (dose 1, after age 1) & degree3 (dose 2). Note that dose2 only has an effect if vaccine==2.			
   tstep			  <- 1000				           # Number of time steps in a year
   
@@ -1483,41 +1485,46 @@ runScenario <- function (vaccine_coverage_folder    = "",
     )
   }
   
+  # ----------------------------------------------------------------------------
+  # psa data (and psa variables file) are generated once at the start of the program
+  #
+  # the following code is not needed -- commented section
   # write file stochastic variables
-  if(psa > 0){
-    stoch_file <- paste0(format(Sys.time(),format="%Y%m"),"_out_measles_stochastic_variables.csv")
-    if(file.exists(paste0("outcome/",stoch_file))){
-      #read csv if file already exists
-      stoch_file <- read.csv(paste0("input/",data_psa))
-      #check if psa_var corresponds with psa
-      if(nrow(stoch_file) != psa){
-        stop(paste0("Number of runs in PSA output file is not the same as those specified! File is NOT overwritten, please delete or rename the old file if a new file needs to be generated"))
-        writelog("gavi_log",paste0("Main; gavi.r aborted PSA error"))
-        if(using_openmpi){
-          mpi.quit()
-        }
-      }
-    } else {
-      # create csv if file does not exist
-      print("Creating stochastic parameters file")
-      stoch_file <- psa_var[,c("run_id","take1_input","take2_input","take3_input")]
-      #get country specific CFR
-      mortality <- as.numeric(psa_var[,"mortality_input"])
-      for(c in 1:length(countries)){
-        cfr <- Crit[which(Crit$country==as.character(countries[c])),"CFR"]
-        stoch_file[,paste0(countries[c],"_CFR")] <- cfr*mortality
-      }
-      fwrite(
-        stoch_file,
-        paste0(
-          "outcome/",
-          format(Sys.time(),format="%Y%m"),
-          "_out_measles_stochastic_variables.csv"
-        ),
-        row.names=FALSE
-      )
-    }
-  }
+  # if(psa > 0){
+  #   stoch_file <- paste0(format(Sys.time(),format="%Y%m"),"_out_measles_stochastic_variables.csv")
+  #   if(file.exists(paste0("outcome/",stoch_file))){
+  #     #read csv if file already exists
+  #     stoch_file <- read.csv(paste0("input/",data_psa))
+  #     #check if psa_var corresponds with psa
+  #     if(nrow(stoch_file) != psa){
+  #       stop(paste0("Number of runs in PSA output file is not the same as those specified! File is NOT overwritten, please delete or rename the old file if a new file needs to be generated"))
+  #       writelog("gavi_log",paste0("Main; gavi.r aborted PSA error"))
+  #       if(using_openmpi){
+  #         mpi.quit()
+  #       }
+  #     }
+  #   } else {
+  #     # create csv if file does not exist
+  #     print("Creating stochastic parameters file")
+  #     stoch_file <- psa_var[,c("run_id","take1_input","take2_input","take3_input")]
+  #     #get country specific CFR
+  #     mortality <- as.numeric(psa_var[,"mortality_input"])
+  #     for(c in 1:length(countries)){
+  #       cfr <- Crit[which(Crit$country==as.character(countries[c])),"CFR"]
+  #       stoch_file[,paste0(countries[c],"_CFR")] <- cfr*mortality
+  #     }
+  #     fwrite(
+  #       stoch_file,
+  #       paste0(
+  #         "outcome/",
+  #         format(Sys.time(),format="%Y%m"),
+  #         "_out_measles_stochastic_variables.csv"
+  #       ),
+  #       row.names=FALSE
+  #     )
+  #   }
+  # }
+  # ----------------------------------------------------------------------------
   
   
   # process results
@@ -1569,6 +1576,10 @@ runScenario <- function (vaccine_coverage_folder    = "",
       warning = function(w) { warning(w, fn); }
     )
     res[, country := gsub("^.+/(\\w+)_age.+$","\\1", fn) ]             # get the country code from the filename
+    # get run_id for psa runs
+    if (psa > 0) {
+      res[, run_id := as.integer(gsub("^.+run(\\d{3}).+$","\\1", fn)) ]  # get the run_id from the filename (subfolder)
+    }
     res[, year := years]                                               # add year of simulation (from coverage data file)
   })) 
   
@@ -1578,27 +1589,39 @@ runScenario <- function (vaccine_coverage_folder    = "",
   all_popsize  <- rbindlist(lapply(myfiles.popsize, function(fn, ...) {
     res <- fread(fn, stringsAsFactors=F, check.names = F, col.names = as.character(c(0:100)))
     res[, country := gsub("^.+/(\\w+)_age.+$","\\1", fn) ]             # get the country code from the filename
+    if (psa > 0) {
+      res[, run_id := as.integer(gsub("^.+run(\\d{3}).+$","\\1", fn)) ]  # get the run_id from the filename (subfolder)
+    }
     res[, year := years]                                               # add year of model was run for (from coverage data file)
   })) 
   all_popsize[country == "XKX", country := "XK"]
   
-  all_cases.m <- melt(all_cases, id.vars = c("year","country"), 
+  if (psa > 0) {
+    column_names <- c("year", "country", "run_id")
+  } else {
+    column_names <- c("year", "country")
+  }
+  
+  # all_cases.m <- melt(all_cases, id.vars = c("year","country"), 
+  all_cases.m <- melt(all_cases, id.vars = column_names,
                       measure.vars = c(as.character(0:100)), 
                       variable.name = "age", value.name = "cases", variable.factor = F)
   
-  all_popsize.m <- melt(all_popsize, id.vars = c("year", "country"),
+  # all_popsize.m <- melt(all_popsize, id.vars = c("year", "country"),
+  all_popsize.m <- melt(all_popsize, id.vars = column_names,
                         measure.vars = c(as.character(0:100)), 
                         variable.name = "age", value.name = "cohort_size", variable.factor = F)
   
   # melt produces character variable when variable.factor is set to FALSE - change it to integer
-  all_cases.m[, age := lapply(.SD, as.integer), .SDcols = "age"]
-  all_popsize.m[, age := lapply(.SD, as.integer), .SDcols = "age"]
+  all_cases.m   [, age := lapply(.SD, as.integer), .SDcols = "age"]
+  all_popsize.m [, age := lapply(.SD, as.integer), .SDcols = "age"]
   
   # merge cases and cohort sizes
-  all_runs = merge(all_cases.m, all_popsize.m, by = c("year", "age", "country"), all.x = T)
+  # all_runs = merge (all_cases.m, all_popsize.m, by = c("year", "age", "country"), all.x = T)
+  all_runs = merge (all_cases.m, all_popsize.m, by = c(column_names, "age"), all.x = T)
   
   # add country_name, life expectancy and disease (Measles) to match template file
-  country_names <- unique(subset(template, select = c("country", "country_name")))
+  country_names <- unique (subset (template, select = c("country", "country_name")))
   c_names <- country_names$country_name; names(c_names) = country_names$country
   life.exp2 <- rbindlist(lapply(2100, function(i) copy(lexp[year == 2099])[, year:=i]))
   life.exp <- rbind(lexp, life.exp2)
@@ -1623,7 +1646,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
   # ----------------------------------------------------------------------------
   # add data column for remaining life expectancy
   all_runs <- lexp_remain [all_runs,
-                           .(i.country, year, age, cases, cohort_size, country_name, disease, cfr.value, LE, value),
+                           .(run_id, i.country, year, age, cases, cohort_size, country_name, disease, cfr.value, LE, value),
                            on = .(country_code = country,
                                   age_from    <= age,
                                   age_to      >= age,
@@ -1650,7 +1673,7 @@ runScenario <- function (vaccine_coverage_folder    = "",
   
   # add MCV1 column
   all_runs <- coverage_routine_MCV1 [all_runs, 
-                                     .(i.country, i.year, age, cases, cohort_size, country_name, disease, cfr.value, LE, coverage, remain_lexp),
+                                     .(run_id, i.country, i.year, age, cases, cohort_size, country_name, disease, cfr.value, LE, coverage, remain_lexp),
                                      on = .(country_code = country,
                                             year         = year)
   ]
@@ -1675,7 +1698,11 @@ runScenario <- function (vaccine_coverage_folder    = "",
   # OUTPUT RUNS
   
   # don't need all of these columns for VIMC, save only ones that are needed
-  save.cols <- c(colnames(template))
+  if (psa > 0) {
+    save.cols <- c("run_id", colnames(template))
+  } else {
+    save.cols <- c(colnames(template))
+  }
   
   # ----------------------------------------------------------------------------
   save.cols <- c(save.cols, "MCV1", "remain_lexp")
@@ -1731,7 +1758,8 @@ estimateDeathsDalys <- function (cfr_option,
                                  burden_estimate_file, 
                                  burden_estimate_folder, 
                                  vimc_scenario, 
-                                 portnoy_scenario) {
+                                 portnoy_scenario, 
+                                 psa = 0) {
   
   # read burden estimates (primarily cases)
   burden <- fread (file = paste0 (burden_estimate_folder, 
@@ -1750,10 +1778,15 @@ estimateDeathsDalys <- function (cfr_option,
     cfr [, CFR := CFR/100]
     
     # add CFR data column to burden estimates
-    burden <- cfr [burden, 
-                   .(disease, year, age, i.country, country_name, cohort_size, cases, dalys, deaths, CFR, remain_lexp), 
-                   on = .(country_code = country)
-    ]
+    if (psa > 0) {
+      burden <- cfr [burden, 
+                     .(run_id, disease, year, age, i.country, country_name, cohort_size, cases, dalys, deaths, CFR, remain_lexp), 
+                     on = .(country_code = country) ]
+    } else {
+      burden <- cfr [burden, 
+                     .(disease, year, age, i.country, country_name, cohort_size, cases, dalys, deaths, CFR, remain_lexp), 
+                     on = .(country_code = country) ]
+    }
     
     # estimate deaths
     # cfrs for ages above 5 years are half the cfr values for ages below 5 years
@@ -1813,17 +1846,18 @@ estimateDeathsDalys <- function (cfr_option,
     )
     
     # add CFR data column to burden estimates
-    burden <- cfr [burden, 
-                   .(disease, year, age, country, country_name, cohort_size, cases, dalys, deaths, over5, under5, remain_lexp), 
-                   on = .(country_code = country, 
-                          year         = year)
-    ]
-    # burden <- cfr [burden, 
-    #                .(disease, year, age, country, country_name, cohort_size, cases, dalys, deaths, over5, under5, remain_lexp), 
-    #                on = .(Code = country, 
-    #                       Year = year)
-    # ]
-    
+    if (psa > 0) {
+      burden <- cfr [burden, 
+                     .(run_id, disease, year, age, country, country_name, cohort_size, cases, dalys, deaths, over5, under5, remain_lexp), 
+                     on = .(country_code = country, 
+                            year         = year) ]
+    } else {
+      burden <- cfr [burden, 
+                     .(disease, year, age, country, country_name, cohort_size, cases, dalys, deaths, over5, under5, remain_lexp), 
+                     on = .(country_code = country, 
+                            year         = year) ]
+    }
+
     # estimate deaths for ages under 5 years
     burden [age < 5, deaths := cases * under5]
     
@@ -2340,7 +2374,10 @@ CreatePSA_Data <- function (psa             = 0,
   
   # construct a random Latin hypercube design
   cube <- randomLHS (n = psa, 
-                     k = (ncol (psadat) - 1)
+                     # k = (ncol (psadat) - 1)
+                     # vaceffbyage_a, vaceffbyage_b, and take3_input will vary
+                     # together, since a, b refers to MCV1 and take3 refers to MCV2
+                     k = 2  
   )
   
   # ----------------------------------------------------------------------------
@@ -2373,7 +2410,7 @@ CreatePSA_Data <- function (psa             = 0,
   low_95CI   <- 0.004882493
   sd_slope   <- (mean_slope - low_95CI) / 1.96
   
-  psadat [, vaceffbyage_b := qtruncnorm (cube [, 2], 
+  psadat [, vaceffbyage_b := qtruncnorm (cube [, 1], 
                                          # a    = (mean_slope - 3 * sd_slope), == -0.0004079801
                                          a    = 0,
                                          b    = (mean_slope + 3 * sd_slope), 
@@ -2384,7 +2421,7 @@ CreatePSA_Data <- function (psa             = 0,
   
   # vaccine efficacy (dose 2)
   # mean 98% -- +- ~ 2%
-  psadat [, take3_input := qtruncnorm (cube [, 3], 
+  psadat [, take3_input := qtruncnorm (cube [, 1], 
                                        a    = (0.98 - 0.02), 
                                        b    = (0.98 + 0.02), 
                                        mean = 0.98, 
@@ -2394,7 +2431,7 @@ CreatePSA_Data <- function (psa             = 0,
   
   # proportional change in case fatality rate
   # truncated lognormal distribution for up to 25% change
-  psadat [, mortality_input := qtruncnorm (cube [, 4], 
+  psadat [, mortality_input := qtruncnorm (cube [, 2], 
                                            a    = (1 - 0.25), 
                                            b    = (1 + 0.25), 
                                            mean = 1, 
