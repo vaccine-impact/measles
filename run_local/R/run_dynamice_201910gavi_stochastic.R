@@ -68,8 +68,8 @@ var <- list (
   # countries                         = c ("all"),
   countries                         = c("IND"),  # debug -- c("BGD", "ETH") / "all"
 
-  cluster_cores                     = 2,  # number of cores
-  psa                               = 2   # psa runs; 0 for single run
+  cluster_cores                     = 2,    # number of cores
+  psa                               = 200   # psa runs; 0 for single run
   )
 
 # ------------------------------------------------------------------------------
