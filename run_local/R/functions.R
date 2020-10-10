@@ -1819,7 +1819,7 @@ estimateDeathsDalys <- function (cfr_option,
     # for years below 2000, set cfr estimates of year 2000
     # for years above 2030, set cfr estimates of year 2030
     
-    # find mimimum and maximum year
+    # find minimum and maximum year
     min_year = min (burden [, year])
     max_year = max (burden [, year])
     
