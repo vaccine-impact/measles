@@ -17,7 +17,9 @@ library (truncnorm)
 
 # remove all objects from workspace
 rm (list = ls ())
-tic ()
+
+# start time
+print (Sys.time ())
 # ------------------------------------------------------------------------------
 
 
@@ -419,8 +421,9 @@ vac_coverage_level_dt <- set_countries_vac_coverage_level (
 estimate_files <- assign_estimates_filenames ()
 
 # loop through scenarios
-# for (i in 1:length(estimate_files$central)) {
-for (i in 1:2) {
+for (i in 1:length(estimate_files$central)) {
+  
+  tic ()
   
   # emulate stochastic estimates
   emulate_stochastic_estimate (
@@ -432,13 +435,14 @@ for (i in 1:2) {
     vac_coverage_level_dt = vac_coverage_level_dt,
     countryCodes          = -1,  # all countries: -1; specific: c("AFG", "IND")
     psa_runs              = 200)
+  
+  toc ()
 }
 
 # return to source directory
 setwd (source_wd)
 
 # end time
-toc ()
 print (Sys.time ())
 
 # ------------------------------------------------------------------------------
