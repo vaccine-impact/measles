@@ -1645,13 +1645,21 @@ runScenario <- function (vaccine_coverage_folder    = "",
   
   # ----------------------------------------------------------------------------
   # add data column for remaining life expectancy
-  all_runs <- lexp_remain [all_runs,
-                           .(run_id, i.country, year, age, cases, cohort_size, country_name, disease, cfr.value, LE, value),
-                           on = .(country_code = country,
-                                  age_from    <= age,
-                                  age_to      >= age,
-                                  year         = year)
-  ]
+  if (psa > 0) {
+    all_runs <- lexp_remain [all_runs,
+                             .(run_id, i.country, year, age, cases, cohort_size, country_name, disease, cfr.value, LE, value),
+                             on = .(country_code = country,
+                                    age_from    <= age,
+                                    age_to      >= age,
+                                    year         = year) ]
+  } else {
+    all_runs <- lexp_remain [all_runs,
+                             .(i.country, year, age, cases, cohort_size, country_name, disease, cfr.value, LE, value),
+                             on = .(country_code = country,
+                                    age_from    <= age,
+                                    age_to      >= age,
+                                    year         = year) ]
+  }
   
   # rename column "i.country" to "country"
   setnames (x = all_runs, old = "i.country", new = "country")
@@ -1672,11 +1680,17 @@ runScenario <- function (vaccine_coverage_folder    = "",
   coverage_routine_MCV1 <- coverage_routine [vaccine == "MCV1"]
   
   # add MCV1 column
-  all_runs <- coverage_routine_MCV1 [all_runs, 
-                                     .(run_id, i.country, i.year, age, cases, cohort_size, country_name, disease, cfr.value, LE, coverage, remain_lexp),
-                                     on = .(country_code = country,
-                                            year         = year)
-  ]
+  if (psa > 0) {
+    all_runs <- coverage_routine_MCV1 [all_runs, 
+                                       .(run_id, i.country, i.year, age, cases, cohort_size, country_name, disease, cfr.value, LE, coverage, remain_lexp),
+                                       on = .(country_code = country,
+                                              year         = year) ]
+  } else {
+    all_runs <- coverage_routine_MCV1 [all_runs, 
+                                       .(i.country, i.year, age, cases, cohort_size, country_name, disease, cfr.value, LE, coverage, remain_lexp),
+                                       on = .(country_code = country,
+                                              year         = year) ]
+  }
   
   # rename column "coverage" to "MCV1"
   setnames (x = all_runs, 

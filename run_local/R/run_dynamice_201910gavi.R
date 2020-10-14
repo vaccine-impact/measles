@@ -3,8 +3,11 @@
 
 # DynaMICE (Dynamic Measles Immunisation Calculation Engine)
 # Measles vaccine impact model
-#   To estimate the health impact of measles vaccination for a given set of 
-#   countries.
+# Estimate health impact (cases, deaths, dalys) of measles vaccination for a 
+# given set of countries.
+
+# for central run: set number of runs to 0 (var$psa = 0)
+# for stochastic runs: set number of runs to greater than 0 (eg: var$psa = 200)
 
 # ------------------------------------------------------------------------------
 # load libraries
@@ -17,6 +20,8 @@ library (doParallel)
 library (foreach)
 library (countrycode)
 library (ggpubr)
+library (lhs) 
+library (truncnorm)
 
 # remove all objects from workspace
 rm (list = ls ())
@@ -41,6 +46,7 @@ set.seed (1)
 source_wd <- getwd ()
 setwd ("../")
 
+# ------------------------------------------------------------------------------
 # set values for global variables
 var <- list (
   # vaccine coverage
@@ -63,12 +69,14 @@ var <- list (
   
   # countries - specify iso3 codes to analyse only these countries
   #             or set it to "all" to analyse all included countries
-  countries                         = c ("all"),
-  # countries                         = c("AFG", "ETH"),  # debug -- c("BGD", "ETH") / "all"
+  countries                         = c ("all"), # debug -- c("BGD", "ETH") / "all"
 
-  cluster_cores                     = 3,  # number of cores
-  psa                               = 0   # psa runs; 0 for single run
+  cluster_cores                     = 3,    # number of cores
+  psa                               = 0     # psa runs; 0 for single central run
   )
+# for central run: set number of runs to 0 (var$psa = 0)
+# for stochastic runs: set number of runs to greater than 0 (eg: var$psa = 200)
+# ------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------
 # scenarios
@@ -89,8 +97,8 @@ scenarios <- c("campaign-only-bestcase",  # 1  SIAs only
 first_scenario <- 1
 last_scenario  <- length (scenarios)
 # debug
-# first_scenario <- 1
-# last_scenario  <- 1
+# first_scenario <- 7
+# last_scenario  <- 7
 # ------------------------------------------------------------------------------
 
 # set SIAs and vaccination parameters for each scenario to minimize errors for running
@@ -131,6 +139,14 @@ create_campaign_vaccination_coverage_file (
 # create remaining life expectancy file for each year across all age intervals
 create_life_expectancy_remaining_full ()
 
+# create latin hyper cube sample of input parameters for 
+# probabilistic sensitivity analysis
+if (var$psa > 0) {
+  psadat <- CreatePSA_Data (psa             = var$psa, 
+                            seed_state      = 1,
+                            psadat_filename = "input/psa_variables.csv")
+}
+
 # loop through scenarios
 for (index in first_scenario:last_scenario) {
 
@@ -160,6 +176,13 @@ for (index in first_scenario:last_scenario) {
   # ----------------------------------------------------------------------------
   
   # ----------------------------------------------------------------------------
+  # burden_estimate_folder (central or stochastic)
+  if (var$psa == 0) {
+    burden_estimate_folder <- var$central_burden_estimate_folder
+  } else {
+    burden_estimate_folder <- var$stochastic_burden_estimate_folder
+  }
+  
   # estimate cases
   #
   # run scenario -- get burden estimates -- primarily cases
@@ -173,7 +196,7 @@ for (index in first_scenario:last_scenario) {
     scenario_number            = scenario_number,
     vaccine_coverage_subfolder = var$vaccine_coverage_subfolder,
     burden_template            = var$burden_template,
-    burden_estimate_folder     = var$central_burden_estimate_folder,
+    burden_estimate_folder     = burden_estimate_folder,
     group_name                 = var$group_name,
     countries                  = var$countries,
     cluster_cores              = var$cluster_cores,
@@ -192,18 +215,20 @@ for (index in first_scenario:last_scenario) {
   #   save results in corresponding cfr_option subfolder
   #   append cfr_option to results file
   # uncomment below to run with cfr_option = "Wolfson"
-  # estimateDeathsDalys (cfr_option             = "Wolfson",
-  #                      burden_estimate_file   = burden_estimate_file,
-  #                      burden_estimate_folder = var$central_burden_estimate_folder)
+  estimateDeathsDalys (cfr_option             = "Wolfson",
+                       burden_estimate_file   = burden_estimate_file,
+                       burden_estimate_folder = burden_estimate_folder, 
+                       psa                    = var$psa)
 
   # apply CFR (case fatality rates) to estimate deaths -- Portnoy
   #   save results in corresponding cfr_option subfolder
   #   append cfr_option to results file
   estimateDeathsDalys (cfr_option             = "Portnoy",
                        burden_estimate_file   = burden_estimate_file,
-                       burden_estimate_folder = var$central_burden_estimate_folder,
+                       burden_estimate_folder = burden_estimate_folder,
                        vimc_scenario          = scenario_name,
-                       portnoy_scenario       = "s6"  # portnoy scenario 6
+                       portnoy_scenario       = "s6",  # portnoy scenario 6
+                       psa                    = var$psa
                        )
   # ----------------------------------------------------------------------------
 
@@ -216,26 +241,27 @@ base_scenario <- "no-vaccination"
 
 # ------------------------------------------------------------------------------
 # diagnostic plots of vaccine coverage and burden estimates (cases, deaths, dalys)
-diagnostic_plots (
-  vaccine_coverage_folder    = var$vaccine_coverage_folder,
-  coverage_prefix            = var$coverage_prefix,
-  touchstone                 = var$touchstone,
-  antigen                    = var$antigen,
-  scenarios                  = scenarios [first_scenario:last_scenario],
-  base_scenario              = base_scenario,
-  burden_estimate_folder     = var$central_burden_estimate_folder,
-  plot_folder                = var$plot_folder,
-  group_name                 = var$group_name,
-  countries                  = var$countries,
-  # cfr_options                = c("Wolfson", "Portnoy"),
-  cfr_options                = c ("Portnoy"),
-  psa                        = var$psa,
-  start_year                 = 2000,
-  end_year                   = 2100,
-  compare_plots              = FALSE
+if (var$psa == 0) {
+  diagnostic_plots (
+    vaccine_coverage_folder    = var$vaccine_coverage_folder,
+    coverage_prefix            = var$coverage_prefix,
+    touchstone                 = var$touchstone,
+    antigen                    = var$antigen,
+    scenarios                  = scenarios [first_scenario:last_scenario],
+    base_scenario              = base_scenario,
+    burden_estimate_folder     = var$central_burden_estimate_folder,
+    plot_folder                = var$plot_folder,
+    group_name                 = var$group_name,
+    countries                  = var$countries,
+    cfr_options                = c("Wolfson", "Portnoy"),
+    # cfr_options                = c ("Portnoy"),
+    psa                        = var$psa,
+    start_year                 = 2000,
+    end_year                   = 2100,
+    compare_plots              = FALSE
   )
+}
 # ------------------------------------------------------------------------------
-
 
 # return to source directory
 setwd (source_wd)
