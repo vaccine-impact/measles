@@ -66,9 +66,9 @@ var <- list (
   # countries - specify iso3 codes to analyse only these countries
   #             or set it to "all" to analyse all included countries
   # countries                         = c ("all"),
-  countries                         = c("IND"),  # debug -- c("BGD", "ETH") / "all"
+  countries                         = c("NGA"),  # debug -- c("BGD", "ETH") / "all"
 
-  cluster_cores                     = 2,    # number of cores
+  cluster_cores                     = 3,    # number of cores
   psa                               = 200   # psa runs; 0 for single run
   )
 
