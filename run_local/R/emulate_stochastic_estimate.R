@@ -133,7 +133,9 @@ basic_plots <- function (psa_dt) {
 # ------------------------------------------------------------------------------
 # assign central estimate and stochastic estimate file names
 # ------------------------------------------------------------------------------
-assign_estimates_filenames <- function (cfr_option = "Portnoy") {
+assign_estimates_filenames <- function (cfr_option = "Portnoy",
+                                        central_estimate_folder, 
+                                        stochastic_estimate_folder) {
   
   # scenarios
   scenarios <- c("campaign-only-bestcase",  # 1  SIAs only
@@ -151,19 +153,11 @@ assign_estimates_filenames <- function (cfr_option = "Portnoy") {
   # flag -- vaccination or no vaccination scenario
   vaccine_flag <- c (T, T, T, T, T, T, T, T, F, T)
   
-  central_estimate_folder <- paste0 ("central_burden_estimate/", cfr_option, "/")
-  
+  # burden estimates files (central and stochastic) 
   central_estimate_files <- paste0 (central_estimate_folder, 
                                     "central_burden_estimate_measles-LSHTM-Jit-", 
                                     scenarios, 
                                     "_", cfr_option, ".csv")
-  
-  # ----------------------------------------------------------------------------
-  # set this folder to external hard disk since the stochastic estimates files
-  # are large files ~ 15 GB each
-  # stochastic_estimate_folder <- "stochastic_burden_estimate/emulator/"
-  stochastic_estimate_folder <- 
-    paste0 ("F:/measles/stochastic_burden_estimate/emulator/", cfr_option, "/")
   
   stochastic_estimate_files <- paste0 (stochastic_estimate_folder,
                                        "stochastic_burden_estimate_measles-LSHTM-Jit-", 
@@ -373,32 +367,12 @@ setwd ("../")
 psa_variables_filename           <- "input/psa_variables.csv"
 psa_variables_casesprop_filename <- "input/psa_variables_casesprop.csv"
 
-# cfr option (case fatality rates) -- Portnoy or Wolfson
-cfr_option <- "Portnoy"
-
 # vaccination coverage labels
 vac_coverage_level <- c(low = "low", high = "high")
 
 # single country based of low and high vaccination coverage
 country_code <- c ("NGA", "IND")
 names (country_code) <- vac_coverage_level
-
-# ------------------------------------------------------------------------------
-# burden estimates
-central_estimate_filename <- 
-  paste0 ("central_burden_estimate/", cfr_option, "/", 
-          "central_burden_estimate_measles-LSHTM-Jit-campaign-default_", 
-          cfr_option, ".csv")
-
-stochastic_estimate_single_country_filename <- 
-  c(paste0 ("stochastic_burden_estimate/", cfr_option, 
-            "/stochastic_burden_estimate_measles-LSHTM-Jit-campaign-default_", 
-            cfr_option, "_NGA.csv"), 
-    paste0 ("stochastic_burden_estimate/", cfr_option, 
-            "/stochastic_burden_estimate_measles-LSHTM-Jit-campaign-default_",
-            cfr_option, "_IND.csv") )
-names (stochastic_estimate_single_country_filename) <- vac_coverage_level
-# ------------------------------------------------------------------------------
 
 # vaccination coverae
 vac_coverage_file <- "vaccine_coverage/coverage_201910gavi-5_measles-campaign-default.csv"
@@ -410,52 +384,92 @@ lexp_remain_file <- "input/demographicdata2019/201910gavi-4_dds-201910_2_life_ex
 # low vaccination coverage < 85%
 # high vaccination coverage >= 85%
 psa_vac_coverage_low_high_file <- "input/psa_vac_coverage_low_high.csv"
+
+# ------------------------------------------------------------------------------
+# cfr option (case fatality rates) -- Portnoy and/or Wolfson
+# cfr_options <- c("Portnoy", "Wolfson")
+cfr_options <- c("Wolfson")
 # ------------------------------------------------------------------------------
 
-# generate proportional variation of cases' estimates for the stochastic runs
-psa_dt <- generate_cases_proportion (
-  psa_variables_filename                      = psa_variables_filename,
-  psa_variables_casesprop_filename            = psa_variables_casesprop_filename,
-  central_estimate_filename                   = central_estimate_filename,
-  vac_coverage_level                          = vac_coverage_level,
-  stochastic_estimate_single_country_filename = stochastic_estimate_single_country_filename,
-  country_code                                = country_code,
-  start_year                                  = 2000,
-  end_year                                    = 2030)
-
-
-# basic plots
-# basic_plots (psa_dt = psa_dt)
-
-# assign countries with low or high vaccination coverage based of MCV1 coverage in 2020
-# low vaccination coverage < 85%
-# high vaccination coverage >= 85% # CONTINUE
-vac_coverage_level_dt <- set_countries_vac_coverage_level (
-  vac_coverage_file              = vac_coverage_file,
-  psa_vac_coverage_low_high_file = psa_vac_coverage_low_high_file)
-# ------------------------------------------------------------------------------
-
-# assign central estimate and stochastic estimate file names
-estimate_files <- assign_estimates_filenames (cfr_option)
-
-# loop through scenarios
-for (i in 1:length(estimate_files$central)) {
+for (cfr_option in cfr_options) {
   
-  tic ()
+  # ----------------------------------------------------------------------------
+  # burden estimates files (central and stochastic files of specific countries) 
+  # to generate proportional variation of cases' estimates for the 
+  # stochastic runs (of all countries)
+  central_estimate_filename <- 
+    paste0 ("central_burden_estimate/", cfr_option, "/", 
+            "central_burden_estimate_measles-LSHTM-Jit-campaign-default_", 
+            cfr_option, ".csv")
   
-  # emulate stochastic estimates
-  emulate_stochastic_estimate (
-    central_file          = estimate_files$central [i],
-    stochastic_file       = estimate_files$stochastic [i],
-    vaccine_flag          = estimate_files$vaccine_flag [i], 
-    lexp_remain_file      = lexp_remain_file, 
-    psa_dt                = psa_dt,
-    vac_coverage_level_dt = vac_coverage_level_dt,
-    countryCodes          = -1,  # all countries: -1; specific: c("AFG", "IND")
-    psa_runs              = 200)
+  stochastic_estimate_single_country_filename <- 
+    c(paste0 ("stochastic_burden_estimate/", cfr_option, 
+              "/stochastic_burden_estimate_measles-LSHTM-Jit-campaign-default_", 
+              cfr_option, "_NGA.csv"), 
+      paste0 ("stochastic_burden_estimate/", cfr_option, 
+              "/stochastic_burden_estimate_measles-LSHTM-Jit-campaign-default_",
+              cfr_option, "_IND.csv") )
+  names (stochastic_estimate_single_country_filename) <- vac_coverage_level
+
+  # generate proportional variation of cases' estimates for the stochastic runs
+  psa_dt <- generate_cases_proportion (
+    psa_variables_filename                      = psa_variables_filename,
+    psa_variables_casesprop_filename            = psa_variables_casesprop_filename,
+    central_estimate_filename                   = central_estimate_filename,
+    vac_coverage_level                          = vac_coverage_level,
+    stochastic_estimate_single_country_filename = stochastic_estimate_single_country_filename,
+    country_code                                = country_code,
+    start_year                                  = 2000,
+    end_year                                    = 2030)
+  # ----------------------------------------------------------------------------
   
-  toc ()
-}
+  # basic plots
+  # basic_plots (psa_dt = psa_dt)
+  
+  # assign countries with low or high vaccination coverage based of MCV1 coverage in 2020
+  # low vaccination coverage < 85%
+  # high vaccination coverage >= 85% # CONTINUE
+  vac_coverage_level_dt <- set_countries_vac_coverage_level (
+    vac_coverage_file              = vac_coverage_file,
+    psa_vac_coverage_low_high_file = psa_vac_coverage_low_high_file)
+  # ------------------------------------------------------------------------------
+  
+  # ------------------------------------------------------------------------------
+  # burden estimates folders (central and stochastic)
+  central_estimate_folder <- paste0 ("central_burden_estimate/", cfr_option, "/")
+  
+  # set this folder to external hard disk since the stochastic estimates files
+  # are large files ~ 15 GB each
+  # stochastic_estimate_folder <- "stochastic_burden_estimate/emulator/"
+  stochastic_estimate_folder <- 
+    paste0 ("F:/measles/stochastic_burden_estimate/emulator/", cfr_option, "/")
+  
+  # assign central estimate and stochastic estimate file names
+  estimate_files <- assign_estimates_filenames (cfr_option, 
+                                                central_estimate_folder, 
+                                                stochastic_estimate_folder)
+  # ------------------------------------------------------------------------------
+  
+  # loop through scenarios
+  for (i in 1:length(estimate_files$central)) {
+  # for (i in 1:1) {  # test run
+    tic ()
+    
+    # emulate stochastic estimates
+    emulate_stochastic_estimate (
+      central_file          = estimate_files$central [i],
+      stochastic_file       = estimate_files$stochastic [i],
+      vaccine_flag          = estimate_files$vaccine_flag [i], 
+      lexp_remain_file      = lexp_remain_file, 
+      psa_dt                = psa_dt,
+      vac_coverage_level_dt = vac_coverage_level_dt,
+      countryCodes          = -1,   # all countries: -1; test run: c("AFG", "IND")
+      psa_runs              = 200)  # 200; test run: 2
+    
+    toc ()
+  }
+  
+} # end of -- for (cfr_option in cfr_options)
 
 # return to source directory
 setwd (source_wd)
