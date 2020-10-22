@@ -133,7 +133,7 @@ basic_plots <- function (psa_dt) {
 # ------------------------------------------------------------------------------
 # assign central estimate and stochastic estimate file names
 # ------------------------------------------------------------------------------
-assign_estimates_filenames <- function () {
+assign_estimates_filenames <- function (cfr_option = "Portnoy") {
   
   # scenarios
   scenarios <- c("campaign-only-bestcase",  # 1  SIAs only
@@ -151,19 +151,24 @@ assign_estimates_filenames <- function () {
   # flag -- vaccination or no vaccination scenario
   vaccine_flag <- c (T, T, T, T, T, T, T, T, F, T)
   
-  central_estimate_folder <- "central_burden_estimate/201910gavi/"
+  central_estimate_folder <- paste0 ("central_burden_estimate/", cfr_option, "/")
   
   central_estimate_files <- paste0 (central_estimate_folder, 
                                     "central_burden_estimate_measles-LSHTM-Jit-", 
                                     scenarios, 
-                                    "_Portnoy.csv")
+                                    "_", cfr_option, ".csv")
   
-  stochastic_estimate_folder <- "stochastic_burden_estimate/emulator/"
+  # ----------------------------------------------------------------------------
+  # set this folder to external hard disk since the stochastic estimates files
+  # are large files ~ 15 GB each
+  # stochastic_estimate_folder <- "stochastic_burden_estimate/emulator/"
+  stochastic_estimate_folder <- 
+    paste0 ("F:/measles/stochastic_burden_estimate/emulator/", cfr_option, "/")
   
   stochastic_estimate_files <- paste0 (stochastic_estimate_folder,
                                        "stochastic_burden_estimate_measles-LSHTM-Jit-", 
                                        scenarios, 
-                                       "_Portnoy.csv")
+                                       "_", cfr_option, ".csv")
   
   return (list (central      = central_estimate_files, 
                 stochastic   = stochastic_estimate_files, 
@@ -368,6 +373,9 @@ setwd ("../")
 psa_variables_filename           <- "input/psa_variables.csv"
 psa_variables_casesprop_filename <- "input/psa_variables_casesprop.csv"
 
+# cfr option (case fatality rates) -- Portnoy or Wolfson
+cfr_option <- "Portnoy"
+
 # vaccination coverage labels
 vac_coverage_level <- c(low = "low", high = "high")
 
@@ -375,12 +383,22 @@ vac_coverage_level <- c(low = "low", high = "high")
 country_code <- c ("NGA", "IND")
 names (country_code) <- vac_coverage_level
 
+# ------------------------------------------------------------------------------
 # burden estimates
-central_estimate_filename    <- "central_burden_estimate/201910gavi/central_burden_estimate_measles-LSHTM-Jit-campaign-default_Portnoy.csv"
+central_estimate_filename <- 
+  paste0 ("central_burden_estimate/", cfr_option, "/", 
+          "central_burden_estimate_measles-LSHTM-Jit-campaign-default_", 
+          cfr_option, ".csv")
+
 stochastic_estimate_single_country_filename <- 
-  c("stochastic_burden_estimate/Portnoy/stochastic_burden_estimate_measles-LSHTM-Jit-campaign-default_Portnoy_NGA.csv", 
-    "stochastic_burden_estimate/Portnoy/stochastic_burden_estimate_measles-LSHTM-Jit-campaign-default_Portnoy_IND.csv")
+  c(paste0 ("stochastic_burden_estimate/", cfr_option, 
+            "/stochastic_burden_estimate_measles-LSHTM-Jit-campaign-default_", 
+            cfr_option, "_NGA.csv"), 
+    paste0 ("stochastic_burden_estimate/", cfr_option, 
+            "/stochastic_burden_estimate_measles-LSHTM-Jit-campaign-default_",
+            cfr_option, "_IND.csv") )
 names (stochastic_estimate_single_country_filename) <- vac_coverage_level
+# ------------------------------------------------------------------------------
 
 # vaccination coverae
 vac_coverage_file <- "vaccine_coverage/coverage_201910gavi-5_measles-campaign-default.csv"
@@ -418,7 +436,7 @@ vac_coverage_level_dt <- set_countries_vac_coverage_level (
 # ------------------------------------------------------------------------------
 
 # assign central estimate and stochastic estimate file names
-estimate_files <- assign_estimates_filenames ()
+estimate_files <- assign_estimates_filenames (cfr_option)
 
 # loop through scenarios
 for (i in 1:length(estimate_files$central)) {
