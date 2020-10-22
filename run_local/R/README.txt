@@ -1,5 +1,6 @@
 To run measles model (execute):
 - run_dynamice.R
+(run_dynamice_201910gavi.R)
 
 The above file sources:
 - functions.R -- contains all requisite functions
@@ -32,9 +33,40 @@ Folders:
     subfolders Portnoy & Wolfson: central burden estimates for Portnoy and Wolfson CFRs
 - central_burden_estimate/Wolfson
 - central_burden_estimate/Portnoy
+Note: To generate central burden estimates, set psa runs = 0
 
 - plots
     subfolder with touchstone name contains diagnostic plots
+
+- stochastic_burden_estimate
+    subfolders Portnoy & Wolfson: stochastic burden estimates for Portnoy and Wolfson CFRs
+- stochastic_burden_estimate/Wolfson
+- stochastic_burden_estimate/Portnoy
+Note: To generate stochastic burden estimates, set psa runs = 200 (or any number of runs)
+
+-----------------------------------------------------------------------------------------------------------------------------------------------
+
+README notes for emulator run of measles
+
+1. Generate central estimates for all (10) scenarios.
+
+2. Generate stochastic estimates (regular stochastic runs) for two countries (India and Nigeria) for campaign-default scenario
+   India indicates high vaccination coverage (based on MCV1 coverage in 2015 > 85%) countries.
+   Nigeria indicates low vaccination coverage (based on MCV1 coverage in 2015 < 85%) countries.
+
+To emulate stochastic estimates (execute):
+emulate_stochastic_estimate.R
+
+3. Generate proportional variation of cases' estimates for the stochastic runs  based on a stochastic estimate for a 
+   single country (India/Nigeria) and central estimate for a single country (India/Nigeria) for a single scenario.
+
+4. Based on results of step 3, emulate stochastic estimates for all countries for all scenarios
+   (i) apply proportional changes to cases
+  (ii) cfr is calculated from central estimate file (deaths / cases)
+ (iii) apply proportional changes to deaths
+  (iv) calculate dalys
+
+-----------------------------------------------------------------------------------------------------------------------------------------------
 
 
 
